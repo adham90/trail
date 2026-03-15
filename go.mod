@@ -1,4 +1,4 @@
-module github.com/adhameldeeb/trail
+module github.com/adham90/trail
 
 go 1.25.7
 

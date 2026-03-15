@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/adhameldeeb/trail/internal/plan"
+	"github.com/adham90/trail/internal/plan"
 	"github.com/spf13/cobra"
 )
 

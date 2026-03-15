@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/adhameldeeb/trail/internal/plan"
+	"github.com/adham90/trail/internal/plan"
 )
 
 // ContextBlock renders the compact context view (trail next output).

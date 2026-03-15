@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/adhameldeeb/trail/cmd"
+	"github.com/adham90/trail/cmd"
 )
 
 func main() {

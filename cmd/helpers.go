@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/adhameldeeb/trail/internal/plan"
+	"github.com/adham90/trail/internal/plan"
 )
 
 // resolvePlanPathFromArgs resolves a plan path from optional args.

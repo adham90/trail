@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/adhameldeeb/trail/internal/plan"
-	"github.com/adhameldeeb/trail/internal/renderer"
+	"github.com/adham90/trail/internal/plan"
+	"github.com/adham90/trail/internal/renderer"
 	"github.com/spf13/cobra"
 )
 

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/adhameldeeb/trail/internal/plan"
+	"github.com/adham90/trail/internal/plan"
 )
 
 // Summary renders the full session summary (trail plan output).

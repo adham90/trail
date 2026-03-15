@@ -7,10 +7,10 @@ Trail solves a fundamental problem with AI-assisted coding: **every new session 
 ## Install
 
 ```bash
-go install github.com/adhameldeeb/trail@latest
+go install github.com/adham90/trail@latest
 ```
 
-Or download a binary from [Releases](https://github.com/adhameldeeb/trail/releases).
+Or download a binary from [Releases](https://github.com/adham90/trail/releases).
 
 ## Quick Start
 
@@ -160,7 +160,7 @@ trail resume
 ## Building from source
 
 ```bash
-git clone https://github.com/adhameldeeb/trail.git
+git clone https://github.com/adham90/trail.git
 cd trail
 go build ./...
 go test ./...
