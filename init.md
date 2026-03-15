@@ -60,12 +60,12 @@ pending_refactor: ~
 
 ## notes
 
-### plan file format (Option A)
+### plan file format (Option A — rich)
 
-All structured state lives in YAML frontmatter. The Markdown body below `---` is freeform notes only. The pretty terminal output is the renderer's job, not the file format's job.
+All structured state lives in YAML frontmatter. Below the closing `---`, trail generates a human-readable Markdown view (constraints, files table, task checkboxes with active task expanded, context table, decisions, notes). This rendered view is regenerated on every write — the YAML is the source of truth.
 
 Example .plans/feat-deploy-pipeline.md:
-```
+```yaml
 ---
 goal: Add deployment pipeline
 branch: feat-deploy-pipeline
@@ -74,30 +74,137 @@ session_count: 2
 created: 2026-03-14
 updated: 2026-03-14
 current_task: 2
+constraints:
+  - All tests must pass before moving to next task
+  - Atomic file writes — temp + os.Rename()
+  - No external API calls in tests
+files:
+  - path: app/jobs/deploy_job.rb
+    role: Solid Queue job
+  - path: app/controllers/deploys_controller.rb
+    role: REST endpoint
 tasks:
   - text: Add DeployJob to Solid Queue
     status: done
+    spec: |
+      Create app/jobs/deploy_job.rb with Solid Queue adapter.
+      Accept deploy_id as argument.
+    verify:
+      - "✓ go test ./internal/deploy/"
+      - "✓ DeployJob.perform_later works"
+    files:
+      - app/jobs/deploy_job.rb
+      - config/queue.yml
   - text: Define deploy endpoint
     status: blocked
-    reason: waiting on DevOps
+    reason: waiting on DevOps to whitelist host
+    spec: REST endpoint that triggers DeployJob
+    verify:
+      - "POST /deploys returns 201"
+      - "creates Deploy record"
+    files:
+      - app/controllers/deploys_controller.rb
   - text: Broadcast status via Turbo Stream
     status: active
+    spec: |
+      Use Turbo Streams to broadcast deploy status updates.
+      Subscribe on the deploys index page.
+    verify:
+      - "status updates appear without page refresh"
+      - "Turbo Stream frame renders correctly"
+    files:
+      - app/views/deploys/_status.html.erb
   - text: Connect sidebar button
     status: todo
 context:
-  current_file: app/jobs/deploy_job.rb
+  current_file: app/views/deploys/_status.html.erb
   last_error: ~
   test_state: 4 passing
+  open_questions: ~
+  pending_refactor: ~
 decisions:
   - time: 2026-03-14T10:00:00Z
-    text: Turbo Streams over ActionCable
+    text: Turbo Streams over ActionCable — simpler, no persistent WS connection
 ---
+
+<!-- generated below — do not edit, use trail commands -->
+
+## constraints
+
+- All tests must pass before moving to next task
+- Atomic file writes — temp + os.Rename()
+- No external API calls in tests
+
+## files
+
+| path | role |
+|---|---|
+| app/jobs/deploy_job.rb | Solid Queue job |
+| app/controllers/deploys_controller.rb | REST endpoint |
+
+## tasks
+
+- [x] 00 · Add DeployJob to Solid Queue
+- [!] 01 · Define deploy endpoint — blocked: waiting on DevOps to whitelist host
+- [▶] 02 · Broadcast status via Turbo Stream
+
+  **spec:** Use Turbo Streams to broadcast deploy status updates.
+Subscribe on the deploys index page.
+
+  **verify:**
+  - [ ] status updates appear without page refresh
+  - [ ] Turbo Stream frame renders correctly
+
+  **files:** app/views/deploys/_status.html.erb
+
+- [ ] 03 · Connect sidebar button
+
+## context
+
+| field | value |
+|---|---|
+| current_file | app/views/deploys/_status.html.erb |
+| last_error | ~ |
+| test_state | 4 passing |
+| open_questions | ~ |
+| pending_refactor | ~ |
+
+## decisions
+
+- 2026-03-14 · Turbo Streams over ActionCable — simpler, no persistent WS connection
 
 ## notes
 
 SSH key injection needs .env.test with KEY_PATH set.
 Check with DevOps before task 04.
 ```
+
+### task fields
+
+| field | type | purpose |
+|---|---|---|
+| `text` | string | short task description |
+| `status` | string | todo, active, done, blocked |
+| `reason` | string | why a task is blocked (omitted otherwise) |
+| `spec` | string | implementation instructions for the agent |
+| `verify` | []string | runnable checks — agent runs after implementing |
+| `files` | []string | which files this task touches |
+
+### plan-level fields
+
+| field | type | purpose |
+|---|---|---|
+| `constraints` | []string | global rules the agent must follow |
+| `files` | []FileRef | key project files with roles (path + role) |
+
+### agent workflow
+
+1. Read plan → see active task's `spec`
+2. Implement according to spec, respecting `constraints`
+3. Run each `verify` command
+4. `trail checkpoint --verify "step text"` to mark steps passed
+5. If all pass → `trail next`
+6. If any fail → `trail checkpoint --error "..." --tests "..."` and fix
 
 ### file structure
 
