@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/adham90/trail/internal/plan"
@@ -13,6 +14,7 @@ var (
 	planGoal     string
 	planNew      bool
 	planNoBranch bool
+	planOpen     bool
 )
 
 var planCmd = &cobra.Command{
@@ -25,6 +27,7 @@ func init() {
 	planCmd.Flags().StringVar(&planGoal, "goal", "", "Plan goal (used with --new)")
 	planCmd.Flags().BoolVar(&planNew, "new", false, "Create a new plan")
 	planCmd.Flags().BoolVar(&planNoBranch, "no-branch", false, "Don't create a git branch")
+	planCmd.Flags().BoolVar(&planOpen, "open", false, "Open plan in $EDITOR after creation")
 	rootCmd.AddCommand(planCmd)
 }
 
@@ -130,5 +133,21 @@ func createNewPlan(name string) error {
 
 	plan.SetCurrent(name)
 	fmt.Printf("Created %s\n", planPath)
+
+	if planOpen {
+		return openInEditor(planPath)
+	}
 	return nil
+}
+
+func openInEditor(path string) error {
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		return fmt.Errorf("$EDITOR not set — use 'export EDITOR=zed' or pass the editor name")
+	}
+	cmd := exec.Command(editor, path)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
