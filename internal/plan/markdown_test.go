@@ -1,6 +1,8 @@
 package plan
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -334,6 +336,95 @@ func TestSetSubTaskDoneAlreadyDone(t *testing.T) {
 	}
 	if !strings.Contains(string(result), "- [x] 1.2. not done") {
 		t.Error("sub-task 1.2 should be marked done")
+	}
+}
+
+func TestParsePlanStatus(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.md")
+	data := []byte(`# My Plan
+
+Goal.
+
+## Tasks
+
+- [x] **1.** Done task
+- [x] **2.** Also done
+- [ ] **3.** Not done
+`)
+	os.WriteFile(path, data, 0o644)
+
+	status, err := ParsePlanStatus(path)
+	if err != nil {
+		t.Fatalf("ParsePlanStatus: %v", err)
+	}
+	if status.Name != "My Plan" {
+		t.Errorf("Name = %q, want 'My Plan'", status.Name)
+	}
+	if status.Total != 3 {
+		t.Errorf("Total = %d, want 3", status.Total)
+	}
+	if status.DoneCount != 2 {
+		t.Errorf("DoneCount = %d, want 2", status.DoneCount)
+	}
+	if status.FilePath != path {
+		t.Errorf("FilePath = %q, want %q", status.FilePath, path)
+	}
+}
+
+func TestParsePlanStatusMissingFile(t *testing.T) {
+	_, err := ParsePlanStatus("/nonexistent/path.md")
+	if err == nil {
+		t.Fatal("expected error for missing file")
+	}
+}
+
+func TestParsePlanStatusNoTasks(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "empty.md")
+	os.WriteFile(path, []byte("# Empty Plan\n\n## Tasks\n"), 0o644)
+
+	status, err := ParsePlanStatus(path)
+	if err != nil {
+		t.Fatalf("ParsePlanStatus: %v", err)
+	}
+	if status.Total != 0 {
+		t.Errorf("Total = %d, want 0", status.Total)
+	}
+	if status.DoneCount != 0 {
+		t.Errorf("DoneCount = %d, want 0", status.DoneCount)
+	}
+}
+
+func TestSetSubTaskDonePreservesParentAndSiblings(t *testing.T) {
+	data := []byte(`## Tasks
+
+- [ ] **1.** Parent task
+  Some description.
+  - [ ] 1.1. first step
+  - [ ] 1.2. second step
+  - [ ] 1.3. third step
+`)
+	// Mark middle sub-task
+	result, err := SetSubTaskDone(data, "1.2")
+	if err != nil {
+		t.Fatalf("SetSubTaskDone: %v", err)
+	}
+	s := string(result)
+	if !strings.Contains(s, "- [x] 1.2. second step") {
+		t.Error("1.2 should be done")
+	}
+	if !strings.Contains(s, "- [ ] 1.1. first step") {
+		t.Error("1.1 should still be unchecked")
+	}
+	if !strings.Contains(s, "- [ ] 1.3. third step") {
+		t.Error("1.3 should still be unchecked")
+	}
+	if !strings.Contains(s, "- [ ] **1.** Parent task") {
+		t.Error("parent should still be unchecked")
+	}
+	if !strings.Contains(s, "Some description.") {
+		t.Error("description should be preserved")
 	}
 }
 
