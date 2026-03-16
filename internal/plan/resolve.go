@@ -108,8 +108,7 @@ func GetCurrent() (string, error) {
 // ResolveCurrentPlan figures out which plan to use:
 // 1. If a name is given, use that
 // 2. If plans/.current exists, use that
-// 3. If current branch matches a plan's branch field, use that
-// 4. If only one active plan exists, use that
+// 3. If only one plan exists, use that
 // Returns the plan name or error.
 func ResolveCurrentPlan(name string) (string, error) {
 	if name != "" {
@@ -125,58 +124,32 @@ func ResolveCurrentPlan(name string) (string, error) {
 		return current, nil
 	}
 
-	// Check branch match
+	// Single plan fallback
 	dir, err := PlansDir()
 	if err != nil {
 		return "", err
 	}
-	branch, _ := CurrentBranch()
-	if branch != "" {
-		entries, err := os.ReadDir(dir)
-		if err == nil {
-			var match string
-			var activeCount int
-			for _, e := range entries {
-				if e.IsDir() || filepath.Ext(e.Name()) != ".md" {
-					continue
-				}
-				p, _, err := ReadFile(filepath.Join(dir, e.Name()))
-				if err != nil {
-					continue
-				}
-				if p.Status == "active" {
-					activeCount++
-					if p.Branch == branch {
-						match = p.Name
-					}
-				}
-			}
-			if match != "" {
-				return match, nil
-			}
-			// If only one active plan, use it
-			if activeCount == 1 {
-				entries, _ := os.ReadDir(dir)
-				for _, e := range entries {
-					if e.IsDir() || filepath.Ext(e.Name()) != ".md" {
-						continue
-					}
-					p, _, err := ReadFile(filepath.Join(dir, e.Name()))
-					if err != nil {
-						continue
-					}
-					if p.Status == "active" {
-						return p.Name, nil
-					}
-				}
-			}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return "", fmt.Errorf("no current plan set — use 'trail use <name>' or specify a plan name")
+	}
+
+	var plans []string
+	for _, e := range entries {
+		if e.IsDir() || filepath.Ext(e.Name()) != ".md" {
+			continue
 		}
+		plans = append(plans, strings.TrimSuffix(e.Name(), ".md"))
+	}
+
+	if len(plans) == 1 {
+		return plans[0], nil
 	}
 
 	return "", fmt.Errorf("no current plan set — use 'trail use <name>' or specify a plan name")
 }
 
-// ListPlans returns all plan files in the plans/ directory.
+// ListPlans returns all plan file slugs in the plans/ directory.
 func ListPlans() ([]string, error) {
 	dir, err := PlansDir()
 	if err != nil {
@@ -223,9 +196,4 @@ func SwitchBranch(branchName string) error {
 func BranchExists(branchName string) bool {
 	cmd := exec.Command("git", "rev-parse", "--verify", branchName)
 	return cmd.Run() == nil
-}
-
-// Legacy support
-func BranchToFilename(branch string) string {
-	return strings.ReplaceAll(branch, "/", "-") + ".md"
 }

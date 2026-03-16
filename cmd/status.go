@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 
 	"github.com/adham90/trail/internal/plan"
 	"github.com/spf13/cobra"
@@ -12,18 +11,12 @@ import (
 
 var statusCmd = &cobra.Command{
 	Use:   "status",
-	Short: "List all plans with progress",
+	Short: "Show progress across all plans",
 	RunE:  runStatus,
 }
 
 func init() {
 	rootCmd.AddCommand(statusCmd)
-}
-
-type planInfo struct {
-	name    string
-	plan    *plan.Plan
-	updated string
 }
 
 func runStatus(cmd *cobra.Command, args []string) error {
@@ -43,47 +36,26 @@ func runStatus(cmd *cobra.Command, args []string) error {
 
 	current, _ := plan.GetCurrent()
 
-	var plans []planInfo
+	found := false
 	for _, e := range entries {
 		if e.IsDir() || filepath.Ext(e.Name()) != ".md" {
 			continue
 		}
 		path := filepath.Join(plansDir, e.Name())
-		p, _, err := plan.ReadFile(path)
+		status, err := plan.ParsePlanStatus(path)
 		if err != nil {
 			continue
 		}
-		plans = append(plans, planInfo{name: p.Name, plan: p, updated: p.Updated})
-	}
-
-	if len(plans) == 0 {
-		fmt.Println("No plans found.")
-		return nil
-	}
-
-	sort.Slice(plans, func(i, j int) bool {
-		return plans[i].updated > plans[j].updated
-	})
-
-	for _, pi := range plans {
-		doneCount := 0
-		for _, t := range pi.plan.Tasks {
-			if t.Status == "done" {
-				doneCount++
-			}
-		}
-		total := len(pi.plan.Tasks)
+		found = true
 		marker := " "
-		if pi.name == current {
+		if status.Name != "" && plan.NameToFilename(current) == e.Name() {
 			marker = "*"
 		}
-		branchInfo := ""
-		if pi.plan.Branch != "" {
-			branchInfo = fmt.Sprintf("  (%s)", pi.plan.Branch)
-		}
-		fmt.Printf("%s %-25s %-10s %d/%d    session %d%s\n",
-			marker, pi.name, pi.plan.Status, doneCount, total, pi.plan.SessionCount, branchInfo)
+		fmt.Printf("%s %-25s %d/%d\n", marker, status.Name, status.DoneCount, status.Total)
 	}
 
+	if !found {
+		fmt.Println("No plans found.")
+	}
 	return nil
 }

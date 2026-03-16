@@ -1,8 +1,8 @@
 # trail
 
-A CLI planning tool that keeps persistent plan files for AI coding agents.
+A CLI planning tool that keeps persistent plan files for AI coding agent sessions.
 
-Trail solves a fundamental problem with AI-assisted coding: **every new session starts blind.** Trail gives each project a persistent plan file that acts as both a task tracker and implementation spec — so the agent knows what's done, what's next, and exactly how to build it.
+Plans are pure Markdown — the agent writes and maintains them directly. Trail handles scaffolding, status parsing, and checkbox manipulation.
 
 ## Install
 
@@ -10,152 +10,95 @@ Trail solves a fundamental problem with AI-assisted coding: **every new session 
 go install github.com/adham90/trail@latest
 ```
 
-Or download a binary from [Releases](https://github.com/adham90/trail/releases).
-
 ## Quick Start
 
 ```bash
-# Create a plan (auto-creates a git branch)
-trail plan --new deploy-pipeline --goal "Add deployment pipeline"
-
-# Add tasks with implementation specs
-trail add "Define deploy endpoint" \
-  --spec "REST endpoint that triggers DeployJob" \
-  --verify "POST /deploys returns 201","creates Deploy record" \
-  --files "app/controllers/deploys_controller.rb"
-
-# Start working
-trail next
-
-# Track progress
-trail checkpoint --file main.go --tests "12 passing"
-
-# Log decisions
-trail decide "Use Turbo Streams over ActionCable — simpler"
-
-# Complete the plan
-trail done
+trail plan --new "auth-rewrite" --goal "Replace JWT middleware with OAuth2"
+# Edit plans/auth-rewrite.md directly to define tasks
+trail done 1          # Mark task 1 complete
+trail block 2 "waiting on API keys"
+trail status          # See progress
+trail resume          # Print plan for session handoff
 ```
-
-## How It Works
-
-Trail stores plans as Markdown files with YAML frontmatter in a `plans/` directory at your git root. The YAML holds all structured state. Below it, trail renders a human-readable Markdown view that looks great in any editor.
-
-```
-project/
-  plans/
-    deploy-pipeline.md    # active plan
-    auth-rewrite.md       # another active plan
-    archive/
-      onboarding.md       # completed
-```
-
-### Plan file format
-
-```yaml
----
-name: deploy-pipeline
-goal: Add deployment pipeline with status broadcasting
-branch: plan/deploy-pipeline
-status: active
-session_count: 2
-constraints:
-  - All tests must pass before moving to next task
-  - Atomic file writes only
-files:
-  - path: app/controllers/deploys_controller.rb
-    role: REST endpoint
-tasks:
-  - text: Define deploy endpoint
-    status: active
-    spec: |
-      REST endpoint that triggers DeployJob.
-      Accept deploy_id in params.
-    verify:
-      - "POST /deploys returns 201"
-      - "creates Deploy record"
-    files:
-      - app/controllers/deploys_controller.rb
-  - text: Broadcast status updates
-    status: todo
-context:
-  current_file: app/controllers/deploys_controller.rb
-  last_error: ~
-  test_state: 8 passing
-decisions:
-  - time: 2026-03-14T10:00:00Z
-    text: Turbo Streams over ActionCable
----
-```
-
-Below the YAML, trail auto-generates a readable Markdown view with task checkboxes, the active task expanded with its spec/verify/files, a context table, and decisions list.
 
 ## Commands
 
 | Command | Description |
-|---|---|
+|---------|-------------|
+| `trail plan --new "name" --goal "..."` | Create plan from template |
 | `trail plan` | List all plans |
-| `trail plan <name>` | Open a plan |
-| `trail plan --new <name> --goal "..."` | Create a plan (with git branch) |
-| `trail plan --new <name> --goal "..." --no-branch` | Create without a branch |
-| `trail use <name>` | Set current plan, switch to its branch |
-| `trail next` | Complete active task, activate next |
-| `trail next --skip` | Skip to next without completing |
-| `trail add "task"` | Add a task |
-| `trail add "task" --spec "..." --verify "a,b" --files "x,y"` | Add with full spec |
-| `trail edit N "new text"` | Reword a task |
-| `trail block "reason"` | Block the active task |
-| `trail block N "reason"` | Block task by index |
-| `trail checkpoint --file x --tests "..." --error "..."` | Save context |
-| `trail checkpoint --verify "step text"` | Mark a verify step as passed |
-| `trail decide "reason"` | Log a decision |
-| `trail done` | Complete and archive the plan |
-| `trail status` | Show all plans with progress |
-| `trail resume` | Print CLAUDE.md + plan for session handoff |
-| `trail undo` | Revert the last write |
+| `trail status` | Show progress across plans |
+| `trail use "name"` | Set active plan |
+| `trail done N` | Mark task N as `[x]` (1-based) |
+| `trail block N "reason"` | Mark task N as blocked |
+| `trail prompt` | Output format guide |
+| `trail resume` | Print plan for session handoff |
+| `trail undo` | Revert last write |
 
-## Agent Workflow
+## Plan Format
 
-### Starting a new session
+```markdown
+# Auth Rewrite
 
-```bash
-trail resume deploy-pipeline
+Replace JWT middleware with OAuth2.
+
+## Acceptance Criteria
+
+- [ ] All endpoints use OAuth2
+- [ ] Existing sessions migrated
+
+## Tasks
+
+- [x] **1.** Set up OAuth2 provider
+  - [x] 1.1. Configure client credentials
+  - [x] 1.2. Test token exchange
+  `auth/provider.go`
+
+- [ ] **2.** Replace JWT middleware
+  Swap out the JWT validation for OAuth2 token introspection.
+  - [ ] 2.1. Update middleware chain
+  - [ ] 2.2. Integration tests pass
+  `middleware/auth.go`, `middleware/auth_test.go`
+
+- [ ] **3.** Migrate sessions [blocked: waiting on DB migration]
+
+## Decisions
+
+- 2026-03-15: Use OAuth2 over SAML — simpler for our use case
+
+## Notes
+
+Check with DevOps on token rotation policy.
 ```
 
-This prints your `CLAUDE.md` and the full plan file — paste it into Claude Code as the first message.
+Trail parses **only top-level checkboxes** under `## Tasks`. Sub-items, descriptions, and other sections are maintained by the agent.
 
-### Working through tasks
+## CLAUDE.md Instructions
 
-The agent reads the active task's `spec`, implements it, runs each `verify` step, and advances:
+Add the following to your project's `CLAUDE.md` so the agent knows how to use trail. You can also generate this with `trail prompt`.
 
-```bash
-trail next                                    # activate first task
-# ... agent implements ...
-trail checkpoint --verify "POST returns 201"  # mark verify passed
-trail checkpoint --verify "creates record"    # mark another
-trail checkpoint --tests "10 passing"         # save test state
-trail next                                    # complete, activate next
-```
+````markdown
+## Planning & Task Management: trail
 
-### Resuming after context loss
+Use `trail` for planning and task management across sessions. Plans live in `plans/` as pure Markdown — edit directly to add tasks, specs, decisions, notes. Use `trail done N` / `trail block N "reason"` for checkbox changes only.
 
-When a Claude Code session ends, the plan persists. Next session:
+- `trail plan --new "name" --goal "..."` — create plan
+- `trail done N` — mark task N done (1-based)
+- `trail block N "reason"` — mark blocked
+- `trail status` — progress overview
+- `trail resume` — print plan for handoff
+- `trail undo` — revert last change
 
-```bash
-trail resume
-# Paste output into new session
-# Agent picks up exactly where you left off
-```
+Trail parses ONLY top-level `- [ ]` / `- [x]` under `## Tasks`. Keep that heading exact. Sub-items are ignored.
+````
 
-## Design Principles
+## How It Works
 
-- **The plan file IS the state.** No database, no config files, no lock-in.
-- **YAML is the source of truth.** The rendered Markdown below is regenerated on every write.
-- **Atomic writes.** Every write goes to a temp file first, then `os.Rename()`. Plans never corrupt on crash.
-- **Visible and committed.** Plans live in `plans/`, not hidden. They're project documentation — commit them.
-- **Each task is an implementation spec.** Not just a title — `spec` tells the agent what to build, `verify` tells it how to check, `files` tells it where to look.
-- **Constraints are global rules.** The agent reads them before every task.
-- **Monochrome output.** Symbols `✓ ▶ ! ○`, ANSI bold, nothing else.
+- Plans live in `plans/` at the git root — visible and committed
+- `plans/.current` tracks the active plan
+- `plans/.backup` holds previous state for undo
+- Branch `plan/<name>` is auto-created with `--new` (use `--no-branch` to skip)
+- Atomic writes via temp file + rename — never corrupts plan files
 
 ## Building from source
 

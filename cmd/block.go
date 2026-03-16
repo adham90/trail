@@ -2,18 +2,18 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
 	"github.com/adham90/trail/internal/plan"
-	"github.com/adham90/trail/internal/renderer"
 	"github.com/spf13/cobra"
 )
 
 var blockCmd = &cobra.Command{
-	Use:   "block [reason] or block N [reason]",
-	Short: "Mark a task as blocked (defaults to active task)",
-	Args:  cobra.MinimumNArgs(1),
+	Use:   "block N \"reason\"",
+	Short: "Mark task N as blocked (1-based)",
+	Args:  cobra.MinimumNArgs(2),
 	RunE:  runBlock,
 }
 
@@ -22,48 +22,35 @@ func init() {
 }
 
 func runBlock(cmd *cobra.Command, args []string) error {
+	taskNum, err := strconv.Atoi(args[0])
+	if err != nil {
+		return fmt.Errorf("invalid task number: %s", args[0])
+	}
+	reason := strings.Join(args[1:], " ")
+
 	planPath, err := resolvePlanPathFromArgs(nil)
 	if err != nil {
 		return err
 	}
 
-	p, notes, err := plan.ReadFile(planPath)
+	data, err := os.ReadFile(planPath)
 	if err != nil {
 		return fmt.Errorf("reading plan: %w", err)
 	}
 
-	var taskIdx int
-	var reason string
-
-	if idx, parseErr := strconv.Atoi(args[0]); parseErr == nil {
-		taskIdx = idx
-		reason = strings.Join(args[1:], " ")
-	} else {
-		taskIdx = -1
-		for i := range p.Tasks {
-			if p.Tasks[i].Status == "active" {
-				taskIdx = i
-				break
-			}
-		}
-		if taskIdx < 0 {
-			return fmt.Errorf("no active task to block")
-		}
-		reason = strings.Join(args, " ")
+	if err := plan.CreateBackup(planPath); err != nil {
+		return fmt.Errorf("creating backup: %w", err)
 	}
 
-	if taskIdx < 0 || taskIdx >= len(p.Tasks) {
-		return fmt.Errorf("task index %d out of range (0-%d)", taskIdx, len(p.Tasks)-1)
+	result, err := plan.SetTaskBlocked(data, taskNum, reason)
+	if err != nil {
+		return err
 	}
 
-	p.Tasks[taskIdx].Status = "blocked"
-	p.Tasks[taskIdx].Reason = reason
-
-	if err := plan.WriteFile(planPath, p, notes); err != nil {
+	if err := plan.AtomicWriteFile(planPath, result); err != nil {
 		return fmt.Errorf("writing plan: %w", err)
 	}
 
-	fmt.Printf("%s %02d · %-30s  blocked: %s\n",
-		renderer.SymbolBlocked, taskIdx, p.Tasks[taskIdx].Text, reason)
+	fmt.Printf("! task %d blocked: %s\n", taskNum, reason)
 	return nil
 }

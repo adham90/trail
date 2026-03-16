@@ -4,10 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/adham90/trail/internal/plan"
-	"github.com/adham90/trail/internal/renderer"
 	"github.com/spf13/cobra"
 )
 
@@ -19,7 +17,7 @@ var (
 
 var planCmd = &cobra.Command{
 	Use:   "plan [name]",
-	Short: "List plans, or open/create a specific plan",
+	Short: "List plans, or create a new plan",
 	RunE:  runPlan,
 }
 
@@ -31,7 +29,6 @@ func init() {
 }
 
 func runPlan(cmd *cobra.Command, args []string) error {
-	// No args — list all plans
 	if len(args) == 0 && !planNew {
 		return listPlans()
 	}
@@ -46,8 +43,17 @@ func runPlan(cmd *cobra.Command, args []string) error {
 		return createNewPlan(name)
 	}
 
-	// Open existing plan
-	return openPlan(name)
+	// Set as current plan
+	planPath, err := plan.ResolvePlanPath(name)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(planPath); os.IsNotExist(err) {
+		return fmt.Errorf("plan %q not found", name)
+	}
+	plan.SetCurrent(name)
+	fmt.Printf("Now using plan: %s\n", name)
+	return nil
 }
 
 func listPlans() error {
@@ -71,23 +77,12 @@ func listPlans() error {
 			continue
 		}
 		path := filepath.Join(dir, e.Name())
-		p, _, err := plan.ReadFile(path)
+		status, err := plan.ParsePlanStatus(path)
 		if err != nil {
 			continue
 		}
 		found = true
-		doneCount := 0
-		for _, t := range p.Tasks {
-			if t.Status == "done" {
-				doneCount++
-			}
-		}
-		branchInfo := ""
-		if p.Branch != "" {
-			branchInfo = fmt.Sprintf("  (%s)", p.Branch)
-		}
-		fmt.Printf("%-25s %-10s %d/%d    session %d%s\n",
-			p.Name, p.Status, doneCount, len(p.Tasks), p.SessionCount, branchInfo)
+		fmt.Printf("  %-25s %d/%d\n", status.Name, status.DoneCount, status.Total)
 	}
 
 	if !found {
@@ -102,7 +97,6 @@ func createNewPlan(name string) error {
 		return err
 	}
 
-	// Check if already exists
 	if _, statErr := os.Stat(planPath); statErr == nil {
 		return fmt.Errorf("plan %q already exists at %s", name, planPath)
 	}
@@ -111,25 +105,12 @@ func createNewPlan(name string) error {
 		return fmt.Errorf("--goal is required when creating a plan: trail plan --new %s --goal \"...\"", name)
 	}
 
-	// Ensure plans/ directory exists
 	dir := filepath.Dir(planPath)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("creating plans/: %w", err)
 	}
 
-	today := time.Now().Format("2006-01-02")
-	p := &plan.Plan{
-		Name:         name,
-		Goal:         planGoal,
-		Status:       "active",
-		SessionCount: 1,
-		Created:      today,
-		Updated:      today,
-		CurrentTask:  0,
-		Tasks:        []plan.Task{},
-		Context:      plan.Context{},
-		Decisions:    []plan.Decision{},
-	}
+	data := plan.GenerateTemplate(name, planGoal)
 
 	// Create branch unless --no-branch
 	if !planNoBranch {
@@ -140,54 +121,14 @@ func createNewPlan(name string) error {
 		if err := plan.CreateBranch(branchName); err != nil {
 			return err
 		}
-		p.Branch = branchName
 		fmt.Printf("Created branch %s\n", branchName)
 	}
 
-	if err := plan.WriteFile(planPath, p, ""); err != nil {
+	if err := plan.AtomicWriteFile(planPath, data); err != nil {
 		return fmt.Errorf("writing plan: %w", err)
 	}
 
-	// Set as current plan
 	plan.SetCurrent(name)
-
 	fmt.Printf("Created %s\n", planPath)
 	return nil
-}
-
-func openPlan(name string) error {
-	planPath, err := plan.ResolvePlanPath(name)
-	if err != nil {
-		return err
-	}
-
-	p, _, err := plan.ReadFile(planPath)
-	if err != nil {
-		return fmt.Errorf("plan %q not found: %w", name, err)
-	}
-
-	// Auto-increment session_count if updated date differs from today
-	today := time.Now().Format("2006-01-02")
-	if p.Updated != today {
-		p.SessionCount++
-		p.Updated = today
-		notes := getNotesFromFile(planPath)
-		if err := plan.WriteFile(planPath, p, notes); err != nil {
-			return fmt.Errorf("updating session count: %w", err)
-		}
-	}
-
-	// Set as current
-	plan.SetCurrent(name)
-
-	fmt.Print(renderer.Summary(p))
-	return nil
-}
-
-func getNotesFromFile(path string) string {
-	_, notes, err := plan.ReadFile(path)
-	if err != nil {
-		return ""
-	}
-	return notes
 }

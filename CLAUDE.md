@@ -13,9 +13,9 @@ go run . <command>      # run any command
 
 ## Architecture
 
-- `cmd/` — Cobra commands (plan, next, checkpoint, decide, block, add, edit, done, resume, status, undo, use)
-- `internal/plan/` — Plan model, YAML parser/writer, resolver, atomic file ops, git operations
-- `internal/renderer/` — Terminal output (summary view, context block, ANSI styles)
+- `cmd/` — Cobra commands (plan, done, block, status, use, resume, undo, prompt)
+- `internal/plan/` — Markdown parser, template generator, atomic file ops, git operations
+- `internal/renderer/` — Terminal output (ANSI bold, symbols ✓ ○)
 
 ## Plans
 
@@ -27,14 +27,54 @@ go run . <command>      # run any command
 
 ## File Format
 
-All structured state lives in YAML frontmatter. Below `---`, trail generates a readable Markdown view (constraints, files, tasks with active task expanded, context, decisions, notes). YAML is the source of truth.
+Plans are pure Markdown files. The coding agent writes and maintains them directly. Trail parses ONLY top-level checkboxes under `## Tasks` for status. Task numbering is 1-based.
+
+```markdown
+# Plan Name
+
+Goal description.
+
+## Acceptance Criteria
+
+- [ ] criterion 1
+
+## Tasks
+
+- [ ] **1.** Task title
+  Description/spec.
+  - [ ] 1.1. verify step
+  `file1.go`, `file2.go`
+
+- [x] **2.** Completed task
+
+## Decisions (optional)
+
+- 2026-03-16: Decision text
+
+## Notes (optional)
+
+Freeform.
+```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `trail plan --new "name" --goal "..."` | Create plan from template |
+| `trail plan` | List all plans |
+| `trail status` | Show progress across plans |
+| `trail use "name"` | Set active plan |
+| `trail done N` | Mark task N as `[x]` (1-based) |
+| `trail block N "reason"` | Mark task N as blocked |
+| `trail prompt` | Output format guide for CLAUDE.md |
+| `trail resume` | Print plan for session handoff |
+| `trail undo` | Revert last write |
 
 ## Key Constraints
 
 - Atomic writes: temp file + `os.Rename()` — never write directly
 - Backup before every write
-- Empty YAML fields use `~` (null), not `""`
 - Plan name → filename: lowercase, spaces/slashes to dashes
 - Plan name → branch: `plan/<name>`
 - Git root: walk up from cwd to find `.git/` directory
-- Monochrome output: `fmt` + ANSI bold, symbols `✓ ▶ ! ○`
+- Monochrome output: `fmt` + ANSI bold, symbols `✓ ○`

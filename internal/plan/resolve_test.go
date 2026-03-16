@@ -65,13 +65,7 @@ func TestSetGetCurrent(t *testing.T) {
 	plansDir := filepath.Join(dir, "plans")
 	os.MkdirAll(plansDir, 0o755)
 
-	origDir, _ := os.Getwd()
-	defer os.Chdir(origDir)
-
-	// We can't easily test SetCurrent/GetCurrent without a git repo,
-	// so test the file operations directly
 	currentPath := filepath.Join(plansDir, ".current")
-
 	os.WriteFile(currentPath, []byte("my-plan\n"), 0o644)
 	data, err := os.ReadFile(currentPath)
 	if err != nil {
@@ -92,22 +86,5 @@ func TestResolvePlanPath(t *testing.T) {
 	}
 	if filepath.Base(path) != "my-plan.md" {
 		t.Errorf("expected my-plan.md, got %q", filepath.Base(path))
-	}
-}
-
-// Legacy compat
-func TestBranchToFilename(t *testing.T) {
-	tests := []struct {
-		branch string
-		want   string
-	}{
-		{"main", "main.md"},
-		{"feat/deploy", "feat-deploy.md"},
-	}
-	for _, tt := range tests {
-		got := BranchToFilename(tt.branch)
-		if got != tt.want {
-			t.Errorf("BranchToFilename(%q) = %q, want %q", tt.branch, got, tt.want)
-		}
 	}
 }

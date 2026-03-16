@@ -11,7 +11,7 @@ import (
 
 var resumeCmd = &cobra.Command{
 	Use:   "resume [plan-name]",
-	Short: "Print CLAUDE.md + active plan for session handoff",
+	Short: "Print plan for session handoff",
 	RunE:  runResume,
 }
 
@@ -20,7 +20,7 @@ func init() {
 }
 
 func runResume(cmd *cobra.Command, args []string) error {
-	name, err := resolvePlanName(args)
+	planPath, err := resolvePlanPathFromArgs(args)
 	if err != nil {
 		return err
 	}
@@ -38,15 +38,9 @@ func runResume(cmd *cobra.Command, args []string) error {
 		fmt.Println()
 	}
 
-	// Print plan file
-	planPath, err := plan.ResolvePlanPath(name)
-	if err != nil {
-		return err
-	}
-
 	data, err := os.ReadFile(planPath)
 	if err != nil {
-		return fmt.Errorf("plan %q not found: %w", name, err)
+		return fmt.Errorf("plan not found: %w", err)
 	}
 
 	fmt.Print(string(data))

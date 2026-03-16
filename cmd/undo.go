@@ -20,12 +20,7 @@ func init() {
 }
 
 func runUndo(cmd *cobra.Command, args []string) error {
-	name, err := resolvePlanName(nil)
-	if err != nil {
-		return err
-	}
-
-	planPath, err := plan.ResolvePlanPath(name)
+	planPath, err := resolvePlanPathFromArgs(nil)
 	if err != nil {
 		return err
 	}
@@ -38,12 +33,7 @@ func runUndo(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no backup found: %w", err)
 	}
 
-	tmp := planPath + ".tmp"
-	if err := os.WriteFile(tmp, backupData, 0o644); err != nil {
-		return fmt.Errorf("writing temp file: %w", err)
-	}
-	if err := os.Rename(tmp, planPath); err != nil {
-		os.Remove(tmp)
+	if err := plan.AtomicWriteFile(planPath, backupData); err != nil {
 		return fmt.Errorf("restoring backup: %w", err)
 	}
 
