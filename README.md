@@ -83,7 +83,7 @@ Add the following to your project's `CLAUDE.md` so the agent knows how to use tr
 
 Use `trail` for planning and task management across sessions. Plans live in `plans/` as pure Markdown — edit directly to add tasks, specs, decisions, notes. Use `trail done N` / `trail block N "reason"` for checkbox changes only.
 
-- `trail plan --new "name" --goal "..."` — create plan (auto-creates git branch)
+- `trail plan --new "name" --goal "..." --open` — create plan and open in `$EDITOR`
 - `trail plan` — list all plans
 - `trail use "name"` — set active plan
 - `trail done N` — mark task N done (1-based)
