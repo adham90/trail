@@ -13,8 +13,8 @@ go install github.com/adham90/trail@latest
 ## Quick Start
 
 ```bash
-trail plan --new "auth-rewrite" --goal "Replace JWT middleware with OAuth2"
-# Edit plans/auth-rewrite.md directly to define tasks
+trail plan --new "auth-rewrite" --goal "Replace JWT middleware with OAuth2" --open
+# Plan opens in $EDITOR — define your tasks
 trail done 1          # Mark task 1 complete
 trail block 2 "waiting on API keys"
 trail status          # See progress
@@ -25,7 +25,7 @@ trail resume          # Print plan for session handoff
 
 | Command | Description |
 |---------|-------------|
-| `trail plan --new "name" --goal "..."` | Create plan from template |
+| `trail plan --new "name" --goal "..."` | Create plan from template (`--open` to open in `$EDITOR`) |
 | `trail plan` | List all plans |
 | `trail status` | Show progress across plans |
 | `trail use "name"` | Set active plan |
