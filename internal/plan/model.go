@@ -65,6 +65,7 @@ type Context struct {
 type Plan struct {
 	Name         string     `yaml:"name"`
 	Goal         string     `yaml:"goal"`
+	Diagram      string     `yaml:"diagram,omitempty"`       // optional — Mermaid diagram source
 	Branch       string     `yaml:"branch,omitempty"`        // optional — associated git branch
 	Status       string     `yaml:"status"`                  // active, complete
 	SessionCount int        `yaml:"session_count"`

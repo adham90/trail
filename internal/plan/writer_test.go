@@ -46,9 +46,14 @@ func TestSerialize(t *testing.T) {
 		t.Error("output does not contain closing ---")
 	}
 
-	// Should contain goal
+	// Should contain goal in YAML frontmatter
 	if !strings.Contains(output, "goal: Build trail") {
-		t.Error("output missing goal field")
+		t.Error("output missing goal field in YAML")
+	}
+
+	// Should contain rendered goal section
+	if !strings.Contains(output, "## goal\n\nBuild trail") {
+		t.Error("output missing rendered goal section")
 	}
 
 	// Should contain tasks
@@ -493,6 +498,82 @@ func TestRoundTripRichPlan(t *testing.T) {
 	}
 	if notes2 != "some notes" {
 		t.Errorf("notes = %q, want 'some notes'", notes2)
+	}
+}
+
+func TestSerializeWithDiagram(t *testing.T) {
+	p := &Plan{
+		Name:    "test",
+		Goal:    "Test diagram support",
+		Diagram: "graph TD\n    A[Start] --> B[End]",
+		Branch:  "main",
+		Status:  "active",
+		Tasks:   []Task{{Text: "First", Status: "todo"}},
+		Context: Context{},
+	}
+
+	data, err := Serialize(p, "")
+	if err != nil {
+		t.Fatalf("Serialize failed: %v", err)
+	}
+
+	output := string(data)
+
+	// Should contain diagram section with mermaid code block
+	if !strings.Contains(output, "## diagram") {
+		t.Error("missing diagram section")
+	}
+	if !strings.Contains(output, "```mermaid\ngraph TD\n    A[Start] --> B[End]\n```") {
+		t.Error("missing mermaid code block")
+	}
+
+	// Diagram section should appear before tasks
+	diagramIdx := strings.Index(output, "## diagram")
+	tasksIdx := strings.Index(output, "## tasks")
+	if diagramIdx > tasksIdx {
+		t.Error("diagram section should appear before tasks")
+	}
+
+	// Goal section should appear before diagram
+	goalIdx := strings.Index(output, "## goal")
+	if goalIdx > diagramIdx {
+		t.Error("goal section should appear before diagram")
+	}
+
+	// Round-trip
+	p2, _, err := Parse(data)
+	if err != nil {
+		t.Fatalf("Round-trip Parse failed: %v", err)
+	}
+	if p2.Diagram != p.Diagram {
+		t.Errorf("Round-trip Diagram = %q, want %q", p2.Diagram, p.Diagram)
+	}
+}
+
+func TestSerializeWithoutDiagram(t *testing.T) {
+	p := &Plan{
+		Name:    "test",
+		Goal:    "No diagram plan",
+		Status:  "active",
+		Tasks:   []Task{{Text: "First", Status: "todo"}},
+		Context: Context{},
+	}
+
+	data, err := Serialize(p, "")
+	if err != nil {
+		t.Fatalf("Serialize failed: %v", err)
+	}
+
+	output := string(data)
+
+	// Should NOT contain diagram section when diagram is empty
+	if strings.Contains(output, "## diagram") {
+		t.Error("diagram section should not appear when diagram is empty")
+	}
+
+	// Should still have goal section
+	if !strings.Contains(output, "## goal") {
+		t.Error("missing goal section")
 	}
 }
 

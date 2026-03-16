@@ -24,6 +24,22 @@ func Serialize(p *Plan, notes string) ([]byte, error) {
 	buf.WriteString("---\n")
 	buf.WriteString("\n<!-- generated below — do not edit, use trail commands -->\n")
 
+	// Render goal
+	buf.WriteString("\n## goal\n\n")
+	buf.WriteString(p.Goal)
+	buf.WriteString("\n")
+
+	// Render diagram (if any)
+	if p.Diagram != "" {
+		buf.WriteString("\n## diagram\n\n")
+		buf.WriteString("```mermaid\n")
+		buf.WriteString(p.Diagram)
+		if !strings.HasSuffix(p.Diagram, "\n") {
+			buf.WriteString("\n")
+		}
+		buf.WriteString("```\n")
+	}
+
 	// Render constraints (if any)
 	if len(p.Constraints) > 0 {
 		buf.WriteString("\n## constraints\n\n")
