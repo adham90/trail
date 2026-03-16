@@ -13,7 +13,7 @@ go run . <command>      # run any command
 
 ## Architecture
 
-- `cmd/` — Cobra commands (plan, done, block, status, use, resume, undo, prompt)
+- `cmd/` — Cobra commands (plan, done, block, archive, status, use, resume, undo, prompt)
 - `internal/plan/` — Markdown parser, template generator, atomic file ops, git operations
 - `internal/renderer/` — Terminal output (ANSI bold, symbols ✓ ○)
 
@@ -66,6 +66,7 @@ Freeform.
 | `trail use "name"` | Set active plan |
 | `trail done N` | Mark task N as `[x]` (1-based) |
 | `trail block N "reason"` | Mark task N as blocked |
+| `trail archive [name]` | Archive a completed plan |
 | `trail prompt` | Output format guide for CLAUDE.md |
 | `trail resume` | Print plan for session handoff |
 | `trail undo` | Revert last write |

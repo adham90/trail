@@ -33,6 +33,7 @@ trail resume          # Print plan for session handoff
 | `trail block N "reason"` | Mark task N as blocked |
 | `trail prompt` | Output format guide |
 | `trail resume` | Print plan for session handoff |
+| `trail archive [name]` | Archive a completed plan |
 | `trail undo` | Revert last write |
 
 ## Plan Format
@@ -82,14 +83,18 @@ Add the following to your project's `CLAUDE.md` so the agent knows how to use tr
 
 Use `trail` for planning and task management across sessions. Plans live in `plans/` as pure Markdown — edit directly to add tasks, specs, decisions, notes. Use `trail done N` / `trail block N "reason"` for checkbox changes only.
 
-- `trail plan --new "name" --goal "..."` — create plan
+- `trail plan --new "name" --goal "..."` — create plan (auto-creates git branch)
+- `trail plan` — list all plans
+- `trail use "name"` — set active plan
 - `trail done N` — mark task N done (1-based)
-- `trail block N "reason"` — mark blocked
+- `trail block N "reason"` — mark task N blocked
 - `trail status` — progress overview
-- `trail resume` — print plan for handoff
+- `trail archive` — archive completed plan
+- `trail resume` — print plan for session handoff
 - `trail undo` — revert last change
+- `trail prompt` — output this format guide
 
-Trail parses ONLY top-level `- [ ]` / `- [x]` under `## Tasks`. Keep that heading exact. Sub-items are ignored.
+Before creating a plan, run `trail prompt` to review the expected format. Trail parses ONLY top-level `- [ ]` / `- [x]` under `## Tasks`. Keep that heading exact. Sub-items are ignored.
 ````
 
 ## How It Works
