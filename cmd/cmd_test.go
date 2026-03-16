@@ -48,6 +48,8 @@ Test goal.
 
 - [x] **1.** First task done
 - [ ] **2.** Second task pending
+  - [ ] 2.1. verify step one
+  - [ ] 2.2. verify step two
 - [ ] **3.** Third task todo
 - [ ] **4.** Fourth task todo
 `)
@@ -302,6 +304,39 @@ func TestDoneAlreadyDone(t *testing.T) {
 	err := doneCmd.RunE(doneCmd, []string{"1"})
 	if err != nil {
 		t.Fatalf("trail done on already-done task failed: %v", err)
+	}
+}
+
+func TestDoneSubTask(t *testing.T) {
+	dir, cleanup := setupTestRepoWithPlan(t)
+	defer cleanup()
+
+	err := doneCmd.RunE(doneCmd, []string{"2.1"})
+	if err != nil {
+		t.Fatalf("trail done 2.1 failed: %v", err)
+	}
+
+	content := readPlanFile(t, dir)
+	if !strings.Contains(content, "- [x] 2.1. verify step one") {
+		t.Error("sub-task 2.1 should be marked done")
+	}
+	// Other sub-task unchanged
+	if !strings.Contains(content, "- [ ] 2.2. verify step two") {
+		t.Error("sub-task 2.2 should still be unchecked")
+	}
+	// Parent task unchanged
+	if !strings.Contains(content, "- [ ] **2.** Second task pending") {
+		t.Error("parent task 2 should still be unchecked")
+	}
+}
+
+func TestDoneSubTaskNotFound(t *testing.T) {
+	_, cleanup := setupTestRepoWithPlan(t)
+	defer cleanup()
+
+	err := doneCmd.RunE(doneCmd, []string{"2.9"})
+	if err == nil {
+		t.Fatal("expected error for nonexistent sub-task")
 	}
 }
 

@@ -180,6 +180,36 @@ func SetTaskBlocked(data []byte, taskNum int, reason string) ([]byte, error) {
 	return nil, fmt.Errorf("task %d not found (plan has %d tasks)", taskNum, current)
 }
 
+// SetSubTaskDone marks a sub-task as done by reference (e.g. "1.1").
+// It finds the indented line matching "- [ ] 1.1." under ## Tasks and flips [ ] → [x].
+func SetSubTaskDone(data []byte, ref string) ([]byte, error) {
+	lines := strings.Split(string(data), "\n")
+	inTasks := false
+	target := "- [ ] " + ref + "."
+
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		if !inTasks {
+			if isTasksHeading(trimmed) {
+				inTasks = true
+			}
+			continue
+		}
+
+		if strings.HasPrefix(trimmed, "## ") {
+			break
+		}
+
+		if strings.HasPrefix(trimmed, target) {
+			lines[i] = strings.Replace(line, "- [ ] ", "- [x] ", 1)
+			return []byte(strings.Join(lines, "\n")), nil
+		}
+	}
+
+	return nil, fmt.Errorf("sub-task %s not found", ref)
+}
+
 // isTasksHeading checks if a line is a ## Tasks heading (case-insensitive).
 func isTasksHeading(line string) bool {
 	lower := strings.ToLower(line)

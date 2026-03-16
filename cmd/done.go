@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/adham90/trail/internal/plan"
 	"github.com/adham90/trail/internal/renderer"
@@ -11,8 +12,8 @@ import (
 )
 
 var doneCmd = &cobra.Command{
-	Use:   "done N",
-	Short: "Mark task N as done (1-based)",
+	Use:   "done N or done N.M",
+	Short: "Mark task N (or sub-task N.M) as done",
 	Args:  cobra.ExactArgs(1),
 	RunE:  runDone,
 }
@@ -22,10 +23,8 @@ func init() {
 }
 
 func runDone(cmd *cobra.Command, args []string) error {
-	taskNum, err := strconv.Atoi(args[0])
-	if err != nil {
-		return fmt.Errorf("invalid task number: %s", args[0])
-	}
+	ref := args[0]
+	isSubTask := strings.Contains(ref, ".")
 
 	planPath, err := resolvePlanPathFromArgs(nil)
 	if err != nil {
@@ -37,21 +36,20 @@ func runDone(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("reading plan: %w", err)
 	}
 
-	// Get task text before marking done
-	tasks := plan.ParseTasks(data)
-	var taskText string
-	for _, t := range tasks {
-		if t.Index == taskNum {
-			taskText = t.Text
-			break
-		}
-	}
-
 	if err := plan.CreateBackup(planPath); err != nil {
 		return fmt.Errorf("creating backup: %w", err)
 	}
 
-	result, err := plan.SetTaskDone(data, taskNum)
+	var result []byte
+	if isSubTask {
+		result, err = plan.SetSubTaskDone(data, ref)
+	} else {
+		taskNum, parseErr := strconv.Atoi(ref)
+		if parseErr != nil {
+			return fmt.Errorf("invalid task number: %s", ref)
+		}
+		result, err = plan.SetTaskDone(data, taskNum)
+	}
 	if err != nil {
 		return err
 	}
@@ -60,6 +58,20 @@ func runDone(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("writing plan: %w", err)
 	}
 
-	fmt.Printf("%s %s\n", renderer.SymbolDone, taskText)
+	// Print confirmation
+	if isSubTask {
+		fmt.Printf("%s %s\n", renderer.SymbolDone, ref)
+	} else {
+		tasks := plan.ParseTasks(data)
+		taskNum, _ := strconv.Atoi(ref)
+		var taskText string
+		for _, t := range tasks {
+			if t.Index == taskNum {
+				taskText = t.Text
+				break
+			}
+		}
+		fmt.Printf("%s %s\n", renderer.SymbolDone, taskText)
+	}
 	return nil
 }

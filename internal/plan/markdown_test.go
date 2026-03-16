@@ -252,6 +252,91 @@ Custom notes here with formatting.
 	}
 }
 
+func TestSetSubTaskDone(t *testing.T) {
+	data := []byte(`# Plan
+
+## Tasks
+
+- [ ] **1.** First task
+  - [ ] 1.1. verify API works
+  - [ ] 1.2. verify DB works
+- [ ] **2.** Second task
+  - [ ] 2.1. check logs
+`)
+	result, err := SetSubTaskDone(data, "1.1")
+	if err != nil {
+		t.Fatalf("SetSubTaskDone: %v", err)
+	}
+
+	s := string(result)
+	if !strings.Contains(s, "- [x] 1.1. verify API works") {
+		t.Error("sub-task 1.1 should be marked done")
+	}
+	// Other sub-tasks unchanged
+	if !strings.Contains(s, "- [ ] 1.2. verify DB works") {
+		t.Error("sub-task 1.2 should still be unchecked")
+	}
+	if !strings.Contains(s, "- [ ] 2.1. check logs") {
+		t.Error("sub-task 2.1 should still be unchecked")
+	}
+	// Parent task unchanged
+	if !strings.Contains(s, "- [ ] **1.** First task") {
+		t.Error("parent task should still be unchecked")
+	}
+}
+
+func TestSetSubTaskDoneSecondTask(t *testing.T) {
+	data := []byte(`## Tasks
+
+- [ ] **1.** First task
+  - [ ] 1.1. step one
+- [ ] **2.** Second task
+  - [ ] 2.1. step one
+  - [ ] 2.2. step two
+`)
+	result, err := SetSubTaskDone(data, "2.2")
+	if err != nil {
+		t.Fatalf("SetSubTaskDone: %v", err)
+	}
+
+	s := string(result)
+	if !strings.Contains(s, "- [x] 2.2. step two") {
+		t.Error("sub-task 2.2 should be marked done")
+	}
+	if !strings.Contains(s, "- [ ] 2.1. step one") {
+		t.Error("sub-task 2.1 should still be unchecked")
+	}
+}
+
+func TestSetSubTaskDoneNotFound(t *testing.T) {
+	data := []byte(`## Tasks
+
+- [ ] **1.** Task
+  - [ ] 1.1. step
+`)
+	_, err := SetSubTaskDone(data, "1.5")
+	if err == nil {
+		t.Fatal("expected error for nonexistent sub-task")
+	}
+}
+
+func TestSetSubTaskDoneAlreadyDone(t *testing.T) {
+	data := []byte(`## Tasks
+
+- [ ] **1.** Task
+  - [x] 1.1. already done
+  - [ ] 1.2. not done
+`)
+	// Already done sub-task — should still work (no-op on the checkbox)
+	result, err := SetSubTaskDone(data, "1.2")
+	if err != nil {
+		t.Fatalf("SetSubTaskDone: %v", err)
+	}
+	if !strings.Contains(string(result), "- [x] 1.2. not done") {
+		t.Error("sub-task 1.2 should be marked done")
+	}
+}
+
 func TestParseTasksWithBlocked(t *testing.T) {
 	data := []byte(`## Tasks
 
