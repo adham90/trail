@@ -136,6 +136,18 @@ func SetTaskDone(data []byte, taskNum int) ([]byte, error) {
 			current++
 			if current == taskNum {
 				lines[i] = strings.Replace(line, "- [ ] ", "- [x] ", 1)
+				// Mark all indented sub-tasks as done too
+				for j := i + 1; j < len(lines); j++ {
+					sub := lines[j]
+					subTrimmed := strings.TrimSpace(sub)
+					// Stop at next top-level task, next section, or blank line followed by non-indented content
+					if taskLineRe.MatchString(sub) || strings.HasPrefix(subTrimmed, "## ") {
+						break
+					}
+					if strings.Contains(sub, "- [ ] ") {
+						lines[j] = strings.Replace(sub, "- [ ] ", "- [x] ", 1)
+					}
+				}
 				return []byte(strings.Join(lines, "\n")), nil
 			}
 		}

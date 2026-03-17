@@ -340,6 +340,31 @@ func TestDoneSubTaskNotFound(t *testing.T) {
 	}
 }
 
+func TestDoneMarksSubTasksToo(t *testing.T) {
+	dir, cleanup := setupTestRepoWithPlan(t)
+	defer cleanup()
+
+	err := doneCmd.RunE(doneCmd, []string{"2"})
+	if err != nil {
+		t.Fatalf("trail done 2 failed: %v", err)
+	}
+
+	content := readPlanFile(t, dir)
+	if !strings.Contains(content, "- [x] **2.** Second task pending") {
+		t.Error("task 2 should be marked done")
+	}
+	if !strings.Contains(content, "- [x] 2.1. verify step one") {
+		t.Error("sub-task 2.1 should be marked done")
+	}
+	if !strings.Contains(content, "- [x] 2.2. verify step two") {
+		t.Error("sub-task 2.2 should be marked done")
+	}
+	// Task 3 should be unchanged
+	if !strings.Contains(content, "- [ ] **3.** Third task todo") {
+		t.Error("task 3 should still be unchecked")
+	}
+}
+
 // --- block command ---
 
 func TestBlock(t *testing.T) {

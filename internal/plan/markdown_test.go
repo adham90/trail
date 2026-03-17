@@ -146,6 +146,41 @@ func TestSetTaskDone(t *testing.T) {
 	}
 }
 
+func TestSetTaskDoneMarksSubTasks(t *testing.T) {
+	data := []byte(`# Plan
+
+## Tasks
+
+- [ ] **1.** First task
+  - [ ] 1.1. sub one
+  - [ ] 1.2. sub two
+- [ ] **2.** Second task
+  - [ ] 2.1. sub
+`)
+	result, err := SetTaskDone(data, 1)
+	if err != nil {
+		t.Fatalf("SetTaskDone: %v", err)
+	}
+
+	s := string(result)
+	if !strings.Contains(s, "- [x] **1.** First task") {
+		t.Error("task 1 should be done")
+	}
+	if !strings.Contains(s, "- [x] 1.1. sub one") {
+		t.Error("sub-task 1.1 should be done")
+	}
+	if !strings.Contains(s, "- [x] 1.2. sub two") {
+		t.Error("sub-task 1.2 should be done")
+	}
+	// Task 2 and its sub-tasks should be unchanged
+	if !strings.Contains(s, "- [ ] **2.** Second task") {
+		t.Error("task 2 should still be unchecked")
+	}
+	if !strings.Contains(s, "- [ ] 2.1. sub") {
+		t.Error("sub-task 2.1 should still be unchecked")
+	}
+}
+
 func TestSetTaskDoneOutOfRange(t *testing.T) {
 	data := []byte(`## Tasks
 
