@@ -76,6 +76,6 @@ Freeform.
 - Atomic writes: temp file + `os.Rename()` — never write directly
 - Backup before every write
 - Plan name → filename: lowercase, spaces/slashes to dashes
-- Plan name → branch: `plan/<name>`
+- Branch convention: `plan/<name>` (not auto-created; `use` switches to it if it exists)
 - Git root: walk up from cwd to find `.git/` directory
 - Monochrome output: `fmt` + ANSI bold, symbols `✓ ○`

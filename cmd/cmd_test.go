@@ -92,11 +92,9 @@ func TestPlanCreate(t *testing.T) {
 
 	planNew = true
 	planGoal = "Build something"
-	planNoBranch = true
 	defer func() {
 		planNew = false
 		planGoal = ""
-		planNoBranch = false
 	}()
 
 	err := planCmd.RunE(planCmd, []string{"my-new-plan"})
@@ -137,40 +135,14 @@ func TestPlanCreateRequiresGoal(t *testing.T) {
 
 	planNew = true
 	planGoal = ""
-	planNoBranch = true
 	defer func() {
 		planNew = false
 		planGoal = ""
-		planNoBranch = false
 	}()
 
 	err := planCmd.RunE(planCmd, []string{"no-goal-plan"})
 	if err == nil {
 		t.Fatal("expected error when --goal is missing")
-	}
-}
-
-func TestPlanCreateWithBranch(t *testing.T) {
-	_, cleanup := setupTestRepo(t)
-	defer cleanup()
-
-	planNew = true
-	planGoal = "Test branching"
-	planNoBranch = false
-	defer func() {
-		planNew = false
-		planGoal = ""
-		planNoBranch = false
-	}()
-
-	err := planCmd.RunE(planCmd, []string{"branch-test"})
-	if err != nil {
-		t.Fatalf("trail plan --new with branch failed: %v", err)
-	}
-
-	branch, _ := plan.CurrentBranch()
-	if branch != "plan/branch-test" {
-		t.Errorf("branch = %q, want 'plan/branch-test'", branch)
 	}
 }
 
@@ -180,11 +152,9 @@ func TestPlanCreateDuplicate(t *testing.T) {
 
 	planNew = true
 	planGoal = "Duplicate"
-	planNoBranch = true
 	defer func() {
 		planNew = false
 		planGoal = ""
-		planNoBranch = false
 	}()
 
 	err := planCmd.RunE(planCmd, []string{"test-plan"})
@@ -481,17 +451,18 @@ func TestUseSwitchesBranch(t *testing.T) {
 	_, cleanup := setupTestRepo(t)
 	defer cleanup()
 
-	// Create a plan with a branch
+	// Create a plan (no branch created automatically)
 	planNew = true
 	planGoal = "Test branch switch"
-	planNoBranch = false
 	defer func() {
 		planNew = false
 		planGoal = ""
-		planNoBranch = false
 	}()
 
 	planCmd.RunE(planCmd, []string{"branched-plan"})
+
+	// Manually create the branch (simulating what an agent would do)
+	exec.Command("git", "checkout", "-b", "plan/branched-plan").Run()
 
 	// Switch back to main
 	plan.SwitchBranch("main")

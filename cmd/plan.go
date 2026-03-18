@@ -13,7 +13,6 @@ import (
 var (
 	planGoal     string
 	planNew      bool
-	planNoBranch bool
 	planOpen     bool
 )
 
@@ -26,7 +25,6 @@ var planCmd = &cobra.Command{
 func init() {
 	planCmd.Flags().StringVar(&planGoal, "goal", "", "Plan goal (used with --new)")
 	planCmd.Flags().BoolVar(&planNew, "new", false, "Create a new plan")
-	planCmd.Flags().BoolVar(&planNoBranch, "no-branch", false, "Don't create a git branch")
 	planCmd.Flags().BoolVar(&planOpen, "open", false, "Open plan in $EDITOR after creation")
 	rootCmd.AddCommand(planCmd)
 }
@@ -114,18 +112,6 @@ func createNewPlan(name string) error {
 	}
 
 	data := plan.GenerateTemplate(name, planGoal)
-
-	// Create branch unless --no-branch
-	if !planNoBranch {
-		branchName := plan.NameToBranch(name)
-		if plan.BranchExists(branchName) {
-			return fmt.Errorf("branch %s already exists", branchName)
-		}
-		if err := plan.CreateBranch(branchName); err != nil {
-			return err
-		}
-		fmt.Printf("Created branch %s\n", branchName)
-	}
 
 	if err := plan.AtomicWriteFile(planPath, data); err != nil {
 		return fmt.Errorf("writing plan: %w", err)

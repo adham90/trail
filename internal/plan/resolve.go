@@ -172,16 +172,6 @@ func ListPlans() ([]string, error) {
 	return names, nil
 }
 
-// CreateBranch creates a new git branch with the given name and switches to it.
-func CreateBranch(branchName string) error {
-	cmd := exec.Command("git", "checkout", "-b", branchName)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("creating branch %s: %s", branchName, strings.TrimSpace(string(out)))
-	}
-	return nil
-}
-
 // SwitchBranch switches to an existing git branch.
 func SwitchBranch(branchName string) error {
 	cmd := exec.Command("git", "checkout", branchName)
