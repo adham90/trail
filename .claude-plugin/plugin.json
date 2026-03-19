@@ -2,7 +2,10 @@
   "name": "trail",
   "version": "0.1.0",
   "description": "Persistent markdown planning for Claude Code sessions with automatic session recovery",
-  "author": "adham90",
+  "author": {
+    "name": "adham90",
+    "url": "https://github.com/adham90"
+  },
   "repository": "https://github.com/adham90/trail",
-  "skills": ["skills/trail"]
+  "skills": ["./skills/"]
 }
