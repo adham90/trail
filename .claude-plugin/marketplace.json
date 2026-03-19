@@ -1,0 +1,13 @@
+{
+  "name": "trail",
+  "owner": {
+    "name": "adham90"
+  },
+  "plugins": [
+    {
+      "name": "trail",
+      "source": "./",
+      "description": "Persistent markdown planning with session recovery"
+    }
+  ]
+}
