@@ -48,10 +48,22 @@ Freeform.
 
 | Command | Description |
 |---------|-------------|
+| `trail init` | Set up trail in current project (.gitignore, CLAUDE.md) |
 | `trail plan "name"` | Create plan (or select if exists) |
 | `trail plan` | List all plans with progress |
 | `trail status` | Show progress across all plans |
 | `trail archive [name]` | Archive a completed plan |
+
+## Plugin Structure
+
+Trail is also a Claude Code plugin with automatic session recovery:
+
+- `.claude-plugin/plugin.json` — Plugin metadata
+- `skills/trail/SKILL.md` — Skill definition with UserPromptSubmit and Stop hooks
+- `skills/trail/scripts/session-recover.sh` — Detects active plan on every user message
+- `skills/trail/scripts/check-progress.sh` — Shows progress before agent stops
+
+Hook scripts are shell-only (no binary dependency). They fall back to parsing plan files directly if the `trail` binary isn't in PATH.
 
 ## Key Constraints
 

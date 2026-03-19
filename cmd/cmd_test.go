@@ -278,6 +278,86 @@ func TestArchiveNotFound(t *testing.T) {
 	}
 }
 
+// --- init command ---
+
+func TestInit(t *testing.T) {
+	dir, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	// Remove plans/ so init creates it fresh
+	os.RemoveAll(filepath.Join(dir, "plans"))
+
+	err := initCmd.RunE(initCmd, []string{})
+	if err != nil {
+		t.Fatalf("trail init failed: %v", err)
+	}
+
+	// plans/ should exist
+	if _, err := os.Stat(filepath.Join(dir, "plans")); os.IsNotExist(err) {
+		t.Error("plans/ directory should be created")
+	}
+
+	// .gitignore should contain plans/.current
+	data, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	if err != nil {
+		t.Fatalf("reading .gitignore: %v", err)
+	}
+	if !strings.Contains(string(data), "plans/.current") {
+		t.Error(".gitignore should contain plans/.current")
+	}
+
+	// CLAUDE.md should contain trail instructions
+	data, err = os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
+	if err != nil {
+		t.Fatalf("reading CLAUDE.md: %v", err)
+	}
+	if !strings.Contains(string(data), "## Planning: trail") {
+		t.Error("CLAUDE.md should contain trail planning section")
+	}
+}
+
+func TestInitIdempotent(t *testing.T) {
+	dir, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	// Run init twice
+	initCmd.RunE(initCmd, []string{})
+	initCmd.RunE(initCmd, []string{})
+
+	// .gitignore should have plans/.current only once
+	data, _ := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	count := strings.Count(string(data), "plans/.current")
+	if count != 1 {
+		t.Errorf(".gitignore has plans/.current %d times, want 1", count)
+	}
+
+	// CLAUDE.md should have trail section only once
+	data, _ = os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
+	count = strings.Count(string(data), "## Planning: trail")
+	if count != 1 {
+		t.Errorf("CLAUDE.md has trail section %d times, want 1", count)
+	}
+}
+
+func TestInitExistingGitignore(t *testing.T) {
+	dir, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	// Write a .gitignore that already has plans/.current
+	os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("node_modules/\nplans/.current\n"), 0o644)
+
+	err := initCmd.RunE(initCmd, []string{})
+	if err != nil {
+		t.Fatalf("trail init failed: %v", err)
+	}
+
+	data, _ := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	count := strings.Count(string(data), "plans/.current")
+	if count != 1 {
+		t.Errorf(".gitignore has plans/.current %d times, want 1", count)
+	}
+}
+
 // --- helpers ---
 
 func TestNameToFilename(t *testing.T) {
