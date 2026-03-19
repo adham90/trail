@@ -3,57 +3,59 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/adham90/trail/internal/plan"
 	"github.com/spf13/cobra"
 )
 
-var (
-	planGoal     string
-	planNew      bool
-	planOpen     bool
-)
-
 var planCmd = &cobra.Command{
 	Use:   "plan [name]",
-	Short: "List plans, or create a new plan",
+	Short: "Create or select a plan (no args: list all)",
 	RunE:  runPlan,
 }
 
 func init() {
-	planCmd.Flags().StringVar(&planGoal, "goal", "", "Plan goal (used with --new)")
-	planCmd.Flags().BoolVar(&planNew, "new", false, "Create a new plan")
-	planCmd.Flags().BoolVar(&planOpen, "open", false, "Open plan in $EDITOR after creation")
 	rootCmd.AddCommand(planCmd)
 }
 
 func runPlan(cmd *cobra.Command, args []string) error {
-	if len(args) == 0 && !planNew {
+	if len(args) == 0 {
 		return listPlans()
-	}
-
-	if len(args) == 0 && planNew {
-		return fmt.Errorf("plan name required: trail plan --new <name> --goal \"...\"")
 	}
 
 	name := args[0]
 
-	if planNew {
-		return createNewPlan(name)
-	}
-
-	// Set as current plan
 	planPath, err := plan.ResolvePlanPath(name)
 	if err != nil {
 		return err
 	}
-	if _, err := os.Stat(planPath); os.IsNotExist(err) {
-		return fmt.Errorf("plan %q not found", name)
+
+	// If plan exists, select it
+	if _, err := os.Stat(planPath); err == nil {
+		if err := plan.SetCurrent(name); err != nil {
+			return fmt.Errorf("setting current plan: %w", err)
+		}
+		fmt.Printf("Now using plan: %s\n", name)
+		return nil
 	}
-	plan.SetCurrent(name)
-	fmt.Printf("Now using plan: %s\n", name)
+
+	// Create new plan
+	dir := filepath.Dir(planPath)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("creating plans/: %w", err)
+	}
+
+	data := plan.GenerateTemplate(name)
+
+	if err := plan.AtomicWriteFile(planPath, data); err != nil {
+		return fmt.Errorf("writing plan: %w", err)
+	}
+
+	if err := plan.SetCurrent(name); err != nil {
+		return fmt.Errorf("setting current plan: %w", err)
+	}
+	fmt.Printf("Created %s\n", planPath)
 	return nil
 }
 
@@ -66,11 +68,13 @@ func listPlans() error {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			fmt.Println("No plans found. Create one with: trail plan --new <name> --goal \"...\"")
+			fmt.Println("No plans found. Create one with: trail plan <name>")
 			return nil
 		}
 		return err
 	}
+
+	current, _ := plan.GetCurrent()
 
 	found := false
 	for _, e := range entries {
@@ -83,57 +87,15 @@ func listPlans() error {
 			continue
 		}
 		found = true
-		fmt.Printf("  %-25s %d/%d\n", status.Name, status.DoneCount, status.Total)
+		marker := " "
+		if plan.NameToFilename(current) == e.Name() {
+			marker = "*"
+		}
+		fmt.Printf("%s %-25s %d/%d\n", marker, status.Name, status.DoneCount, status.Total)
 	}
 
 	if !found {
-		fmt.Println("No plans found. Create one with: trail plan --new <name> --goal \"...\"")
+		fmt.Println("No plans found. Create one with: trail plan <name>")
 	}
 	return nil
-}
-
-func createNewPlan(name string) error {
-	planPath, err := plan.ResolvePlanPath(name)
-	if err != nil {
-		return err
-	}
-
-	if _, statErr := os.Stat(planPath); statErr == nil {
-		return fmt.Errorf("plan %q already exists at %s", name, planPath)
-	}
-
-	if planGoal == "" {
-		return fmt.Errorf("--goal is required when creating a plan: trail plan --new %s --goal \"...\"", name)
-	}
-
-	dir := filepath.Dir(planPath)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fmt.Errorf("creating plans/: %w", err)
-	}
-
-	data := plan.GenerateTemplate(name, planGoal)
-
-	if err := plan.AtomicWriteFile(planPath, data); err != nil {
-		return fmt.Errorf("writing plan: %w", err)
-	}
-
-	plan.SetCurrent(name)
-	fmt.Printf("Created %s\n", planPath)
-
-	if planOpen {
-		return openInEditor(planPath)
-	}
-	return nil
-}
-
-func openInEditor(path string) error {
-	editor := os.Getenv("EDITOR")
-	if editor == "" {
-		return fmt.Errorf("$EDITOR not set — use 'export EDITOR=zed' or pass the editor name")
-	}
-	cmd := exec.Command(editor, path)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
 }

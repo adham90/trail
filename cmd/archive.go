@@ -20,7 +20,16 @@ func init() {
 }
 
 func runArchive(cmd *cobra.Command, args []string) error {
-	planPath, err := resolvePlanPathFromArgs(args)
+	var name string
+	if len(args) > 0 {
+		name = args[0]
+	}
+	resolved, err := plan.ResolveCurrentPlan(name)
+	if err != nil {
+		return err
+	}
+
+	planPath, err := plan.ResolvePlanPath(resolved)
 	if err != nil {
 		return err
 	}
@@ -29,7 +38,6 @@ func runArchive(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("plan not found: %s", planPath)
 	}
 
-	// Parse status for summary
 	status, err := plan.ParsePlanStatus(planPath)
 	if err != nil {
 		return fmt.Errorf("reading plan: %w", err)

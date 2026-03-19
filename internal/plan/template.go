@@ -6,26 +6,16 @@ import (
 	"unicode"
 )
 
-// GenerateTemplate creates a new plan Markdown file with the given name and goal.
-func GenerateTemplate(name, goal string) []byte {
+// GenerateTemplate creates a new plan Markdown file with the given name.
+func GenerateTemplate(name string) []byte {
 	return []byte(fmt.Sprintf(`# %s
-
-%s
-
-## Acceptance Criteria
-
-- [ ] Define acceptance criteria
 
 ## Tasks
 
-- [ ] **1.** Define first task
-- [ ] **2.** Define second task
-- [ ] **3.** Define third task
-
-## Decisions
+- [ ] Define tasks
 
 ## Notes
-`, name, goal))
+`, name))
 }
 
 // SlugToTitle converts a filename slug to a title.

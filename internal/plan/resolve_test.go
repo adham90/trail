@@ -25,22 +25,6 @@ func TestNameToFilename(t *testing.T) {
 	}
 }
 
-func TestNameToBranch(t *testing.T) {
-	tests := []struct {
-		name string
-		want string
-	}{
-		{"deploy-pipeline", "plan/deploy-pipeline"},
-		{"Auth Rewrite", "plan/auth-rewrite"},
-	}
-	for _, tt := range tests {
-		got := NameToBranch(tt.name)
-		if got != tt.want {
-			t.Errorf("NameToBranch(%q) = %q, want %q", tt.name, got, tt.want)
-		}
-	}
-}
-
 func TestGitRoot(t *testing.T) {
 	root, err := GitRoot()
 	if err != nil {
@@ -48,16 +32,6 @@ func TestGitRoot(t *testing.T) {
 	}
 	if root == "" {
 		t.Fatal("GitRoot() returned empty string")
-	}
-}
-
-func TestCurrentBranch(t *testing.T) {
-	branch, err := CurrentBranch()
-	if err != nil {
-		t.Fatalf("CurrentBranch() failed: %v", err)
-	}
-	if branch == "" {
-		t.Fatal("CurrentBranch() returned empty string")
 	}
 }
 

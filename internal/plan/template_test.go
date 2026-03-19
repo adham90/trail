@@ -6,30 +6,26 @@ import (
 )
 
 func TestGenerateTemplate(t *testing.T) {
-	data := GenerateTemplate("Deploy Pipeline", "Build and deploy the CI/CD pipeline")
-
+	data := GenerateTemplate("Deploy Pipeline")
 	s := string(data)
 
 	if !strings.Contains(s, "# Deploy Pipeline") {
 		t.Error("template should contain plan name heading")
 	}
-	if !strings.Contains(s, "Build and deploy the CI/CD pipeline") {
-		t.Error("template should contain goal")
-	}
 	if !strings.Contains(s, "## Tasks") {
 		t.Error("template should contain Tasks section")
 	}
-	if !strings.Contains(s, "## Acceptance Criteria") {
-		t.Error("template should contain Acceptance Criteria section")
-	}
-	if !strings.Contains(s, "- [ ] **1.**") {
-		t.Error("template should contain numbered task placeholders")
+	if !strings.Contains(s, "- [ ] Define tasks") {
+		t.Error("template should contain placeholder task")
 	}
 
 	// Should be valid for parsing
-	tasks := ParseTasks(data)
-	if len(tasks) != 3 {
-		t.Errorf("template should have 3 placeholder tasks, got %d", len(tasks))
+	done, total := ParseTaskCounts(data)
+	if total != 1 {
+		t.Errorf("template should have 1 placeholder task, got %d", total)
+	}
+	if done != 0 {
+		t.Errorf("template should have 0 done tasks, got %d", done)
 	}
 }
 

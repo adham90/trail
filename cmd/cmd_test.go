@@ -46,12 +46,12 @@ Test goal.
 
 ## Tasks
 
-- [x] **1.** First task done
-- [ ] **2.** Second task pending
-  - [ ] 2.1. verify step one
-  - [ ] 2.2. verify step two
-- [ ] **3.** Third task todo
-- [ ] **4.** Fourth task todo
+- [x] First task done
+- [ ] Second task pending
+  - [ ] verify step one
+  - [ ] verify step two
+- [ ] Third task todo
+- [ ] Fourth task todo
 `)
 	planPath := filepath.Join(dir, "plans", "test-plan.md")
 	if err := os.WriteFile(planPath, planData, 0o644); err != nil {
@@ -74,32 +74,15 @@ func run(t *testing.T, dir string, name string, args ...string) string {
 	return string(out)
 }
 
-func readPlanFile(t *testing.T, dir string) string {
-	t.Helper()
-	planPath := filepath.Join(dir, "plans", "test-plan.md")
-	data, err := os.ReadFile(planPath)
-	if err != nil {
-		t.Fatalf("reading plan: %v", err)
-	}
-	return string(data)
-}
-
 // --- plan command ---
 
 func TestPlanCreate(t *testing.T) {
 	dir, cleanup := setupTestRepo(t)
 	defer cleanup()
 
-	planNew = true
-	planGoal = "Build something"
-	defer func() {
-		planNew = false
-		planGoal = ""
-	}()
-
 	err := planCmd.RunE(planCmd, []string{"my-new-plan"})
 	if err != nil {
-		t.Fatalf("trail plan --new failed: %v", err)
+		t.Fatalf("trail plan <name> (create) failed: %v", err)
 	}
 
 	planPath := filepath.Join(dir, "plans", "my-new-plan.md")
@@ -112,14 +95,8 @@ func TestPlanCreate(t *testing.T) {
 	if !strings.Contains(content, "# my-new-plan") {
 		t.Error("plan should contain name heading")
 	}
-	if !strings.Contains(content, "Build something") {
-		t.Error("plan should contain goal")
-	}
 	if !strings.Contains(content, "## Tasks") {
 		t.Error("plan should contain Tasks section")
-	}
-	if !strings.Contains(content, "## Acceptance Criteria") {
-		t.Error("plan should contain Acceptance Criteria section")
 	}
 
 	// Should be set as current
@@ -129,37 +106,33 @@ func TestPlanCreate(t *testing.T) {
 	}
 }
 
-func TestPlanCreateRequiresGoal(t *testing.T) {
+func TestPlanCreateSetsAsCurrent(t *testing.T) {
 	_, cleanup := setupTestRepo(t)
 	defer cleanup()
 
-	planNew = true
-	planGoal = ""
-	defer func() {
-		planNew = false
-		planGoal = ""
-	}()
+	planCmd.RunE(planCmd, []string{"first-plan"})
+	planCmd.RunE(planCmd, []string{"second-plan"})
 
-	err := planCmd.RunE(planCmd, []string{"no-goal-plan"})
-	if err == nil {
-		t.Fatal("expected error when --goal is missing")
+	current, _ := plan.GetCurrent()
+	if current != "second-plan" {
+		t.Errorf("current = %q, want 'second-plan'", current)
 	}
 }
 
-func TestPlanCreateDuplicate(t *testing.T) {
+func TestPlanSelectExisting(t *testing.T) {
 	_, cleanup := setupTestRepoWithPlan(t)
 	defer cleanup()
 
-	planNew = true
-	planGoal = "Duplicate"
-	defer func() {
-		planNew = false
-		planGoal = ""
-	}()
+	plan.SetCurrent("")
 
 	err := planCmd.RunE(planCmd, []string{"test-plan"})
-	if err == nil {
-		t.Fatal("expected error for duplicate plan")
+	if err != nil {
+		t.Fatalf("trail plan <name> (select) failed: %v", err)
+	}
+
+	current, _ := plan.GetCurrent()
+	if current != "test-plan" {
+		t.Errorf("current = %q, want 'test-plan'", current)
 	}
 }
 
@@ -167,7 +140,6 @@ func TestPlanList(t *testing.T) {
 	_, cleanup := setupTestRepoWithPlan(t)
 	defer cleanup()
 
-	planNew = false
 	err := planCmd.RunE(planCmd, []string{})
 	if err != nil {
 		t.Fatalf("trail plan (list) failed: %v", err)
@@ -178,209 +150,27 @@ func TestPlanListEmpty(t *testing.T) {
 	_, cleanup := setupTestRepo(t)
 	defer cleanup()
 
-	planNew = false
 	err := planCmd.RunE(planCmd, []string{})
 	if err != nil {
 		t.Fatalf("trail plan (list empty) failed: %v", err)
 	}
 }
 
-func TestPlanSelectByName(t *testing.T) {
-	_, cleanup := setupTestRepoWithPlan(t)
+func TestPlanListShowsCurrentMarker(t *testing.T) {
+	dir, cleanup := setupTestRepo(t)
 	defer cleanup()
 
-	plan.SetCurrent("")
-	planNew = false
-	err := planCmd.RunE(planCmd, []string{"test-plan"})
+	// Create two plans
+	os.WriteFile(filepath.Join(dir, "plans", "alpha.md"),
+		[]byte("# Alpha\n\n## Tasks\n\n- [ ] task\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "plans", "beta.md"),
+		[]byte("# Beta\n\n## Tasks\n\n- [x] task\n"), 0o644)
+	plan.SetCurrent("alpha")
+
+	// Just verify it runs without error (output goes to stdout)
+	err := planCmd.RunE(planCmd, []string{})
 	if err != nil {
-		t.Fatalf("trail plan <name> failed: %v", err)
-	}
-
-	current, _ := plan.GetCurrent()
-	if current != "test-plan" {
-		t.Errorf("current = %q, want 'test-plan'", current)
-	}
-}
-
-func TestPlanSelectNotFound(t *testing.T) {
-	_, cleanup := setupTestRepo(t)
-	defer cleanup()
-
-	planNew = false
-	err := planCmd.RunE(planCmd, []string{"nonexistent"})
-	if err == nil {
-		t.Fatal("expected error for nonexistent plan")
-	}
-}
-
-// --- done command ---
-
-func TestDone(t *testing.T) {
-	dir, cleanup := setupTestRepoWithPlan(t)
-	defer cleanup()
-
-	err := doneCmd.RunE(doneCmd, []string{"2"})
-	if err != nil {
-		t.Fatalf("trail done 2 failed: %v", err)
-	}
-
-	content := readPlanFile(t, dir)
-	if !strings.Contains(content, "- [x] **2.** Second task pending") {
-		t.Error("task 2 should be marked done")
-	}
-	// Task 3 should still be unchecked
-	if !strings.Contains(content, "- [ ] **3.** Third task todo") {
-		t.Error("task 3 should still be unchecked")
-	}
-}
-
-func TestDoneCreatesBackup(t *testing.T) {
-	dir, cleanup := setupTestRepoWithPlan(t)
-	defer cleanup()
-
-	doneCmd.RunE(doneCmd, []string{"2"})
-
-	backupPath := filepath.Join(dir, "plans", ".backup")
-	if _, err := os.Stat(backupPath); os.IsNotExist(err) {
-		t.Error("backup file should exist after done")
-	}
-}
-
-func TestDoneOutOfRange(t *testing.T) {
-	_, cleanup := setupTestRepoWithPlan(t)
-	defer cleanup()
-
-	err := doneCmd.RunE(doneCmd, []string{"10"})
-	if err == nil {
-		t.Fatal("expected error for out-of-range task")
-	}
-}
-
-func TestDoneInvalidArg(t *testing.T) {
-	_, cleanup := setupTestRepoWithPlan(t)
-	defer cleanup()
-
-	err := doneCmd.RunE(doneCmd, []string{"abc"})
-	if err == nil {
-		t.Fatal("expected error for non-numeric arg")
-	}
-}
-
-func TestDoneAlreadyDone(t *testing.T) {
-	_, cleanup := setupTestRepoWithPlan(t)
-	defer cleanup()
-
-	// Task 1 is already [x] — should be a no-op (no error)
-	err := doneCmd.RunE(doneCmd, []string{"1"})
-	if err != nil {
-		t.Fatalf("trail done on already-done task failed: %v", err)
-	}
-}
-
-func TestDoneSubTask(t *testing.T) {
-	dir, cleanup := setupTestRepoWithPlan(t)
-	defer cleanup()
-
-	err := doneCmd.RunE(doneCmd, []string{"2.1"})
-	if err != nil {
-		t.Fatalf("trail done 2.1 failed: %v", err)
-	}
-
-	content := readPlanFile(t, dir)
-	if !strings.Contains(content, "- [x] 2.1. verify step one") {
-		t.Error("sub-task 2.1 should be marked done")
-	}
-	// Other sub-task unchanged
-	if !strings.Contains(content, "- [ ] 2.2. verify step two") {
-		t.Error("sub-task 2.2 should still be unchecked")
-	}
-	// Parent task unchanged
-	if !strings.Contains(content, "- [ ] **2.** Second task pending") {
-		t.Error("parent task 2 should still be unchecked")
-	}
-}
-
-func TestDoneSubTaskNotFound(t *testing.T) {
-	_, cleanup := setupTestRepoWithPlan(t)
-	defer cleanup()
-
-	err := doneCmd.RunE(doneCmd, []string{"2.9"})
-	if err == nil {
-		t.Fatal("expected error for nonexistent sub-task")
-	}
-}
-
-func TestDoneMarksSubTasksToo(t *testing.T) {
-	dir, cleanup := setupTestRepoWithPlan(t)
-	defer cleanup()
-
-	err := doneCmd.RunE(doneCmd, []string{"2"})
-	if err != nil {
-		t.Fatalf("trail done 2 failed: %v", err)
-	}
-
-	content := readPlanFile(t, dir)
-	if !strings.Contains(content, "- [x] **2.** Second task pending") {
-		t.Error("task 2 should be marked done")
-	}
-	if !strings.Contains(content, "- [x] 2.1. verify step one") {
-		t.Error("sub-task 2.1 should be marked done")
-	}
-	if !strings.Contains(content, "- [x] 2.2. verify step two") {
-		t.Error("sub-task 2.2 should be marked done")
-	}
-	// Task 3 should be unchanged
-	if !strings.Contains(content, "- [ ] **3.** Third task todo") {
-		t.Error("task 3 should still be unchecked")
-	}
-}
-
-// --- block command ---
-
-func TestBlock(t *testing.T) {
-	dir, cleanup := setupTestRepoWithPlan(t)
-	defer cleanup()
-
-	err := blockCmd.RunE(blockCmd, []string{"3", "waiting", "on", "API"})
-	if err != nil {
-		t.Fatalf("trail block 3 failed: %v", err)
-	}
-
-	content := readPlanFile(t, dir)
-	if !strings.Contains(content, "[blocked: waiting on API]") {
-		t.Error("task 3 should be blocked with reason")
-	}
-}
-
-func TestBlockCreatesBackup(t *testing.T) {
-	dir, cleanup := setupTestRepoWithPlan(t)
-	defer cleanup()
-
-	blockCmd.RunE(blockCmd, []string{"2", "reason"})
-
-	backupPath := filepath.Join(dir, "plans", ".backup")
-	if _, err := os.Stat(backupPath); os.IsNotExist(err) {
-		t.Error("backup file should exist after block")
-	}
-}
-
-func TestBlockOutOfRange(t *testing.T) {
-	_, cleanup := setupTestRepoWithPlan(t)
-	defer cleanup()
-
-	err := blockCmd.RunE(blockCmd, []string{"10", "reason"})
-	if err == nil {
-		t.Fatal("expected error for out-of-range task")
-	}
-}
-
-func TestBlockInvalidArg(t *testing.T) {
-	_, cleanup := setupTestRepoWithPlan(t)
-	defer cleanup()
-
-	err := blockCmd.RunE(blockCmd, []string{"abc", "reason"})
-	if err == nil {
-		t.Fatal("expected error for non-numeric arg")
+		t.Fatalf("trail plan (list with current) failed: %v", err)
 	}
 }
 
@@ -410,139 +200,12 @@ func TestStatusMultiplePlans(t *testing.T) {
 	dir, cleanup := setupTestRepoWithPlan(t)
 	defer cleanup()
 
-	// Add a second plan
-	secondPlan := []byte("# Second Plan\n\nGoal.\n\n## Tasks\n\n- [x] **1.** Done\n- [ ] **2.** Todo\n")
+	secondPlan := []byte("# Second Plan\n\nGoal.\n\n## Tasks\n\n- [x] Done\n- [ ] Todo\n")
 	os.WriteFile(filepath.Join(dir, "plans", "second-plan.md"), secondPlan, 0o644)
 
 	err := statusCmd.RunE(statusCmd, []string{})
 	if err != nil {
 		t.Fatalf("trail status (multiple) failed: %v", err)
-	}
-}
-
-// --- use command ---
-
-func TestUse(t *testing.T) {
-	_, cleanup := setupTestRepoWithPlan(t)
-	defer cleanup()
-
-	err := useCmd.RunE(useCmd, []string{"test-plan"})
-	if err != nil {
-		t.Fatalf("trail use failed: %v", err)
-	}
-
-	current, _ := plan.GetCurrent()
-	if current != "test-plan" {
-		t.Errorf("current plan = %q, want 'test-plan'", current)
-	}
-}
-
-func TestUseNotFound(t *testing.T) {
-	_, cleanup := setupTestRepo(t)
-	defer cleanup()
-
-	err := useCmd.RunE(useCmd, []string{"nonexistent"})
-	if err == nil {
-		t.Fatal("expected error for nonexistent plan")
-	}
-}
-
-func TestUseSwitchesBranch(t *testing.T) {
-	_, cleanup := setupTestRepo(t)
-	defer cleanup()
-
-	// Create a plan (no branch created automatically)
-	planNew = true
-	planGoal = "Test branch switch"
-	defer func() {
-		planNew = false
-		planGoal = ""
-	}()
-
-	planCmd.RunE(planCmd, []string{"branched-plan"})
-
-	// Manually create the branch (simulating what an agent would do)
-	exec.Command("git", "checkout", "-b", "plan/branched-plan").Run()
-
-	// Switch back to main
-	plan.SwitchBranch("main")
-
-	// Use should switch branch
-	err := useCmd.RunE(useCmd, []string{"branched-plan"})
-	if err != nil {
-		t.Fatalf("trail use with branch failed: %v", err)
-	}
-
-	branch, _ := plan.CurrentBranch()
-	if branch != "plan/branched-plan" {
-		t.Errorf("branch = %q, want 'plan/branched-plan'", branch)
-	}
-}
-
-// --- resume command ---
-
-func TestResume(t *testing.T) {
-	_, cleanup := setupTestRepoWithPlan(t)
-	defer cleanup()
-
-	err := resumeCmd.RunE(resumeCmd, []string{})
-	if err != nil {
-		t.Fatalf("trail resume failed: %v", err)
-	}
-}
-
-func TestResumeByName(t *testing.T) {
-	_, cleanup := setupTestRepoWithPlan(t)
-	defer cleanup()
-
-	err := resumeCmd.RunE(resumeCmd, []string{"test-plan"})
-	if err != nil {
-		t.Fatalf("trail resume <name> failed: %v", err)
-	}
-}
-
-func TestResumeNotFound(t *testing.T) {
-	_, cleanup := setupTestRepo(t)
-	defer cleanup()
-
-	plan.SetCurrent("nonexistent")
-	err := resumeCmd.RunE(resumeCmd, []string{})
-	if err == nil {
-		t.Fatal("expected error for nonexistent plan")
-	}
-}
-
-// --- undo command ---
-
-func TestUndo(t *testing.T) {
-	dir, cleanup := setupTestRepoWithPlan(t)
-	defer cleanup()
-
-	doneCmd.RunE(doneCmd, []string{"2"})
-
-	content := readPlanFile(t, dir)
-	if !strings.Contains(content, "- [x] **2.**") {
-		t.Fatal("task 2 should be done before undo")
-	}
-
-	err := undoCmd.RunE(undoCmd, []string{})
-	if err != nil {
-		t.Fatalf("trail undo failed: %v", err)
-	}
-
-	content = readPlanFile(t, dir)
-	if !strings.Contains(content, "- [ ] **2.**") {
-		t.Error("task 2 should be unchecked after undo")
-	}
-}
-
-func TestUndoNoBackup(t *testing.T) {
-	_, cleanup := setupTestRepoWithPlan(t)
-	defer cleanup()
-
-	err := undoCmd.RunE(undoCmd, []string{})
-	if err == nil {
-		t.Fatal("expected error when no backup exists")
 	}
 }
 
@@ -615,13 +278,6 @@ func TestArchiveNotFound(t *testing.T) {
 	}
 }
 
-// --- prompt command ---
-
-func TestPrompt(t *testing.T) {
-	// prompt uses Run not RunE, just verify it doesn't panic
-	promptCmd.Run(promptCmd, []string{})
-}
-
 // --- helpers ---
 
 func TestNameToFilename(t *testing.T) {
@@ -637,22 +293,6 @@ func TestNameToFilename(t *testing.T) {
 		got := plan.NameToFilename(tt.name)
 		if got != tt.want {
 			t.Errorf("NameToFilename(%q) = %q, want %q", tt.name, got, tt.want)
-		}
-	}
-}
-
-func TestNameToBranch(t *testing.T) {
-	tests := []struct {
-		name string
-		want string
-	}{
-		{"deploy-pipeline", "plan/deploy-pipeline"},
-		{"Auth Rewrite", "plan/auth-rewrite"},
-	}
-	for _, tt := range tests {
-		got := plan.NameToBranch(tt.name)
-		if got != tt.want {
-			t.Errorf("NameToBranch(%q) = %q, want %q", tt.name, got, tt.want)
 		}
 	}
 }

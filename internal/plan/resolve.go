@@ -3,7 +3,6 @@ package plan
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -27,28 +26,12 @@ func GitRoot() (string, error) {
 	}
 }
 
-// CurrentBranch returns the current git branch name.
-func CurrentBranch() (string, error) {
-	out, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
-	if err != nil {
-		return "", fmt.Errorf("getting git branch: %w", err)
-	}
-	return strings.TrimSpace(string(out)), nil
-}
-
 // NameToFilename converts a plan name to a filename slug.
 func NameToFilename(name string) string {
 	slug := strings.ToLower(name)
 	slug = strings.ReplaceAll(slug, " ", "-")
 	slug = strings.ReplaceAll(slug, "/", "-")
 	return slug + ".md"
-}
-
-// NameToBranch converts a plan name to a branch name.
-func NameToBranch(name string) string {
-	slug := strings.ToLower(name)
-	slug = strings.ReplaceAll(slug, " ", "-")
-	return "plan/" + slug
 }
 
 // PlansDir returns the plans/ directory path at the git root.
@@ -131,7 +114,7 @@ func ResolveCurrentPlan(name string) (string, error) {
 	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return "", fmt.Errorf("no current plan set — use 'trail use <name>' or specify a plan name")
+		return "", fmt.Errorf("no current plan set — use 'trail plan <name>' to create or select a plan")
 	}
 
 	var plans []string
@@ -146,7 +129,7 @@ func ResolveCurrentPlan(name string) (string, error) {
 		return plans[0], nil
 	}
 
-	return "", fmt.Errorf("no current plan set — use 'trail use <name>' or specify a plan name")
+	return "", fmt.Errorf("no current plan set — use 'trail plan <name>' to create or select a plan")
 }
 
 // ListPlans returns all plan file slugs in the plans/ directory.
@@ -170,20 +153,4 @@ func ListPlans() ([]string, error) {
 		names = append(names, strings.TrimSuffix(e.Name(), ".md"))
 	}
 	return names, nil
-}
-
-// SwitchBranch switches to an existing git branch.
-func SwitchBranch(branchName string) error {
-	cmd := exec.Command("git", "checkout", branchName)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("switching to branch %s: %s", branchName, strings.TrimSpace(string(out)))
-	}
-	return nil
-}
-
-// BranchExists checks if a git branch exists.
-func BranchExists(branchName string) bool {
-	cmd := exec.Command("git", "rev-parse", "--verify", branchName)
-	return cmd.Run() == nil
 }

@@ -24,17 +24,6 @@ func AtomicWriteFile(path string, data []byte) error {
 	return nil
 }
 
-// CreateBackup copies the file at path to plans/.backup in the same directory.
-func CreateBackup(path string) error {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	dir := filepath.Dir(path)
-	backupPath := filepath.Join(dir, ".backup")
-	return os.WriteFile(backupPath, data, 0o644)
-}
-
 // readFileBytes reads a file and returns its contents.
 func readFileBytes(path string) ([]byte, error) {
 	return os.ReadFile(path)

@@ -47,36 +47,3 @@ func TestAtomicWriteFileCreatesDir(t *testing.T) {
 		t.Errorf("file content = %q, want %q", got, "content")
 	}
 }
-
-func TestCreateBackup(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "plan.md")
-
-	original := []byte("original content")
-	if err := os.WriteFile(path, original, 0o644); err != nil {
-		t.Fatalf("writing original: %v", err)
-	}
-
-	if err := CreateBackup(path); err != nil {
-		t.Fatalf("CreateBackup: %v", err)
-	}
-
-	backupPath := filepath.Join(dir, ".backup")
-	got, err := os.ReadFile(backupPath)
-	if err != nil {
-		t.Fatalf("reading backup: %v", err)
-	}
-	if string(got) != "original content" {
-		t.Errorf("backup content = %q, want %q", got, "original content")
-	}
-}
-
-func TestCreateBackupMissingFile(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "nonexistent.md")
-
-	err := CreateBackup(path)
-	if err == nil {
-		t.Error("expected error for missing file")
-	}
-}
