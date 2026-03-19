@@ -4,19 +4,32 @@ A CLI planning tool that keeps persistent plan files for AI coding agent session
 
 Plans are pure Markdown — the agent reads and edits them directly. Trail handles scaffolding, tracking which plan is active, and parsing task progress.
 
-## Install
+## Install in Claude Code
 
-### As a Claude Code plugin (recommended)
-
-Trail works as a Claude Code plugin with automatic session recovery — when you start a new session, the agent automatically knows about your active plan.
+### From a plugin marketplace (recommended)
 
 ```bash
-# Via plugin marketplace
+# 1. Add the marketplace (one-time)
 /plugin marketplace add adham90/trail
+
+# 2. Install the plugin
 /plugin install trail@trail
 ```
 
-Or manually:
+That's it. Trail is now active in your project with automatic session recovery.
+
+To manage the plugin later:
+
+```bash
+/plugin disable trail@trail      # Disable without uninstalling
+/plugin enable trail@trail       # Re-enable
+/plugin uninstall trail@trail    # Remove completely
+```
+
+### Manual installation
+
+Clone the plugin into your project's `.claude/plugins/` directory:
+
 ```bash
 mkdir -p .claude/plugins
 git clone https://github.com/adham90/trail.git .claude/plugins/trail
@@ -24,23 +37,62 @@ git clone https://github.com/adham90/trail.git .claude/plugins/trail
 
 ### CLI binary (optional)
 
-Install the Go binary for richer `trail status` output and atomic file operations:
+The plugin works without the Go binary — hook scripts parse plan files directly. Install the binary for richer `trail status` output and atomic file operations:
 
 ```bash
 go install github.com/adham90/trail@latest
 ```
 
-The plugin works without the binary — hook scripts parse plan files directly as a fallback.
+## Usage
 
-## Quick Start
+### Getting started
+
+Once installed, initialize trail in your project:
+
+```
+trail init
+```
+
+This creates:
+- `plans/` directory for your plan files
+- Adds `plans/.current` to `.gitignore`
+- Appends trail instructions to your `CLAUDE.md`
+
+### Creating and working with plans
 
 ```bash
-trail init                   # Set up trail in your project
 trail plan "auth-rewrite"    # Create a new plan (or select existing)
 # Edit plans/auth-rewrite.md — add tasks, specs, notes
 trail status                 # See progress across all plans
 trail archive                # Archive when done
 ```
+
+### What happens automatically
+
+When installed as a plugin, trail hooks into Claude Code's lifecycle:
+
+1. **Every message you send** — trail detects your active plan and shows progress:
+   ```
+   [trail] Active plan: Auth Rewrite (3/7 tasks done)
+   [trail] Read plans/auth-rewrite.md to resume work.
+   ```
+2. **Before the agent stops** — trail reminds it to update checkboxes:
+   ```
+   [trail] Progress: 5/7 tasks done.
+   [trail] Update checkboxes in plans/auth-rewrite.md before stopping.
+   ```
+
+This means starting a new session or running `/clear` never loses plan context.
+
+### Working without the binary
+
+If you don't have the `trail` binary installed, you can work with plans directly:
+
+1. Create `plans/` at your git root
+2. Write a Markdown file (e.g., `plans/my-plan.md`) using the format below
+3. Write the plan name to `plans/.current` to make it active
+
+The plugin hooks will still detect and display progress from the raw Markdown.
 
 ## Commands
 
@@ -77,9 +129,9 @@ Check with DevOps on token rotation policy.
 
 Trail counts **only top-level checkboxes** (no leading whitespace) under `## Tasks`. Indented checkboxes (sub-tasks), descriptions, and other sections are the agent's responsibility.
 
-## CLAUDE.md Instructions
+## Adding to CLAUDE.md
 
-Add to your project's `CLAUDE.md` so the agent knows how to use trail:
+Running `trail init` automatically adds instructions to your project's `CLAUDE.md`. If you prefer to add them manually:
 
 ````markdown
 ## Planning: trail
